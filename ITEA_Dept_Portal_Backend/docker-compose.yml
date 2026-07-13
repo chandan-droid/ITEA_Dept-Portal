@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  backend-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: itea_dept_portal_backend
+    ports:
+      - "8081:8081"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://aws-1-ap-south-1.pooler.supabase.com:5432/postgres
+      - SPRING_DATASOURCE_USERNAME=postgres.wvodzeuwfbbqszztwjgx
+      - SPRING_DATASOURCE_PASSWORD=,cwjwpt8UAetzA@
+      - MOCKIDP_URL=http://host.docker.internal:8080
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: always

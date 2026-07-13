@@ -1,0 +1,86 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Mock IdP Admin</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    input, button { margin: 4px; }
+    .user { margin-bottom: 6px; }
+  </style>
+</head>
+<body>
+  <h1>Mock IdP — User Management</h1>
+  <div>
+    <button onclick="loadUsers()">Refresh Users</button>
+    <button onclick="reset()">Reset from LDIF</button>
+    <div id="users"></div>
+  </div>
+
+  <h2>Create User</h2>
+  <div>
+    <input id="uid" placeholder="uid">
+    <input id="cn" placeholder="cn">
+    <input id="sn" placeholder="sn">
+    <input id="mail" placeholder="mail">
+    <input id="password" placeholder="password">
+    <button onclick="createUser()">Create</button>
+  </div>
+
+  <h2>Import LDIF</h2>
+  <div>
+    <input type="file" id="ldiffile">
+    <button onclick="importLdif()">Upload</button>
+  </div>
+
+  <script>
+    async function loadUsers(){
+      const res = await fetch('/api/users');
+      const data = await res.json();
+      const el = document.getElementById('users');
+      el.innerHTML = '';
+      data.forEach(d => {
+        const div = document.createElement('div');
+        div.className = 'user';
+        div.textContent = d;
+        const btn = document.createElement('button');
+        btn.textContent = 'Delete';
+        btn.onclick = async ()=>{
+          const uid = d.match(/uid=([^,]+)/)[1];
+          await fetch('/api/users/'+uid, { method: 'DELETE' });
+          loadUsers();
+        };
+        div.appendChild(btn);
+        el.appendChild(div);
+      });
+    }
+
+    async function createUser(){
+      const body = {
+        uid: document.getElementById('uid').value,
+        cn: document.getElementById('cn').value,
+        sn: document.getElementById('sn').value,
+        mail: document.getElementById('mail').value,
+        password: document.getElementById('password').value
+      };
+      await fetch('/api/users', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)});
+      loadUsers();
+    }
+
+    async function importLdif(){
+      const f = document.getElementById('ldiffile').files[0];
+      if (!f) return alert('Choose a file');
+      const fd = new FormData(); fd.append('file', f);
+      await fetch('/api/import-ldif', { method: 'POST', body: fd });
+      loadUsers();
+    }
+
+    async function reset(){
+      await fetch('/api/reset', { method: 'POST' });
+      loadUsers();
+    }
+
+    loadUsers();
+  </script>
+</body>
+</html>

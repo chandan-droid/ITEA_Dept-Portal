@@ -1,0 +1,65 @@
+dn: dc=msil,dc=co,dc=in
+objectClass: top
+objectClass: domain
+dc: msil
+
+dn: ou=People,dc=msil,dc=co,dc=in
+objectClass: organizationalUnit
+ou: People
+
+dn: uid=dev,ou=People,dc=msil,dc=co,dc=in
+objectClass: inetOrgPerson
+cn: Dev
+sn: Kumar
+uid: dev
+mail: dev@msil.co.in
+userPassword: password123
+employeeNumber: 1001
+
+dn: uid=john,ou=People,dc=msil,dc=co,dc=in
+objectClass: inetOrgPerson
+cn: John
+sn: Smith
+uid: john
+mail: john@msil.co.in
+userPassword: welcome123
+employeeNumber: 1002
+
+dn: uid=rakesh,ou=People,dc=msil,dc=co,dc=in
+objectClass: inetOrgPerson
+cn: Rakesh Pandey
+sn: Pandey
+uid: rakesh
+mail: rakesh@msil.co.in
+userPassword: password123
+employeeNumber: 1003
+
+dn: ou=Groups,dc=msil,dc=co,dc=in
+objectClass: organizationalUnit
+ou: Groups
+
+dn: cn=DE_CGV4,ou=Groups,dc=msil,dc=co,dc=in
+objectClass: groupOfNames
+cn: DE_CGV4
+member: uid=dev,ou=People,dc=msil,dc=co,dc=in
+member: uid=rakesh,ou=People,dc=msil,dc=co,dc=in
+
+dn: cn=Employees,ou=Groups,dc=msil,dc=co,dc=in
+objectClass: groupOfNames
+cn: Employees
+member: uid=dev,ou=People,dc=msil,dc=co,dc=in
+member: uid=john,ou=People,dc=msil,dc=co,dc=in
+member: uid=rakesh,ou=People,dc=msil,dc=co,dc=in
+
+dn: cn=ADMIN,ou=Groups,dc=msil,dc=co,dc=in
+objectClass: groupOfNames
+cn: ADMIN
+member: uid=rakesh,ou=People,dc=msil,dc=co,dc=in
+
+dn: cn=MANAGER,ou=Groups,dc=msil,dc=co,dc=in
+objectClass: groupOfNames
+cn: MANAGER
+member: uid=rakesh,ou=People,dc=msil,dc=co,dc=in
+
+
+

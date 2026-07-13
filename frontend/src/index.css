@@ -1,0 +1,145 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #1976D2;
+  --color-primary-light: #42a5f5;
+  --color-primary-dark: #1565c0;
+  --color-secondary: #455A64;
+  --color-secondary-light: #718792;
+  --color-secondary-dark: #1c313a;
+  --color-background: #F5F7FA;
+  --color-surface: #FFFFFF;
+  --radius-large: 12px;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-secondary-dark);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Material Design 3 Inspired Custom Utilities */
+.md-card {
+  background-color: var(--color-surface);
+  border-radius: var(--radius-large);
+  border: 1px solid rgba(229, 231, 235, 0.6);
+  padding: 1.5rem;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  transition: all 0.2s;
+}
+.md-card:hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.md-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background-color: var(--color-surface);
+  border: 1px solid rgb(209, 213, 219);
+  border-radius: var(--radius-large);
+  transition: all 0.2s;
+}
+.md-input:focus {
+  outline: none;
+  border-color: transparent;
+  box-shadow: 0 0 0 2px var(--color-primary);
+}
+
+.md-button-primary {
+  padding: 0.75rem 1.5rem;
+  background-color: var(--color-primary);
+  color: white;
+  font-weight: 500;
+  border-radius: var(--radius-large);
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+.md-button-primary:hover {
+  background-color: var(--color-primary-dark);
+}
+.md-button-primary:active {
+  transform: scale(0.98);
+}
+.md-button-primary:disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.md-button-secondary {
+  padding: 0.75rem 1.5rem;
+  border: 1px solid rgb(209, 213, 219);
+  color: var(--color-secondary);
+  background-color: var(--color-surface);
+  font-weight: 500;
+  border-radius: var(--radius-large);
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+.md-button-secondary:hover {
+  background-color: rgb(249, 250, 251);
+}
+.md-button-secondary:active {
+  transform: scale(0.98);
+}
+.md-button-secondary:disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.md-button-danger {
+  padding: 0.75rem 1.5rem;
+  background-color: rgb(220, 38, 38);
+  color: white;
+  font-weight: 500;
+  border-radius: var(--radius-large);
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+.md-button-danger:hover {
+  background-color: rgb(185, 28, 28);
+}
+.md-button-danger:active {
+  transform: scale(0.98);
+}
+
+.md-table-header {
+  padding: 1rem 1.5rem;
+  background-color: rgb(249, 250, 251);
+  border-bottom: 1px solid rgb(229, 231, 235);
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgb(107, 114, 128);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.md-table-cell {
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid rgb(229, 231, 235);
+  font-size: 0.875rem;
+  color: rgb(55, 65, 81);
+}
+
+/* Smooth micro-animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}

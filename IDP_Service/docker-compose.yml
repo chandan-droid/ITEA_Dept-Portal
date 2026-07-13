@@ -1,0 +1,13 @@
+services:
+
+  idp-service:
+    build: .
+    container_name: idp-service
+    ports:
+      - "${SERVER_PORT:-8080}:${SERVER_PORT:-8080}"
+      - "${MOCKIDP_LDAP_PORT:-8389}:${MOCKIDP_LDAP_PORT:-8389}"
+    env_file:
+      - .env
+    restart: unless-stopped
+
+
