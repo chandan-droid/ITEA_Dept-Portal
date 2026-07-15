@@ -7,6 +7,9 @@ import { DashboardScreen } from '../features/dashboard/DashboardScreen';
 import { ProfileScreen } from '../features/profile/ProfileScreen';
 import { LoadingSpinner } from '../shared/components/LoadingSpinner';
 
+import { EmployeesScreen } from '../features/employees/EmployeesScreen';
+import { EmployeeDetailsScreen } from '../features/employees/EmployeeDetailsScreen';
+
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
 
@@ -37,6 +40,8 @@ export const AppRoutes = () => {
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<DashboardScreen />} />
         <Route path="profile" element={<ProfileScreen />} />
+        <Route path="employees" element={<EmployeesScreen />} />
+        <Route path="employees/:id" element={<EmployeeDetailsScreen />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

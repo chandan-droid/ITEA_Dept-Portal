@@ -38,10 +38,13 @@ public class ActiveDirectoryMapper {
         } else {
             roles.add("EMPLOYEE"); // Fallback default role
         }
-        if (groups.contains("ADMIN")) {
-            roles.add("ROLE_PORTAL_ADMIN");
+        if (groups.contains("DE_CGV4")) {
+            roles.add("ROLE_USER");
         }
-        if (groups.contains("MANAGER")) {
+        if (groups.contains("DE_CGV4_ADMIN")) {
+            roles.add("ROLE_ADMIN");
+        }
+        if (groups.contains("DE_CGV4_MANAGER")) {
             roles.add("ROLE_MANAGER");
         }
         claims.put("roles", roles);

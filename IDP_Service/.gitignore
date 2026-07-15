@@ -35,3 +35,7 @@ build/
 # Local Environment Variables
 .env
 
+# Local LDAP Setup Data
+setup.ldif
+
+

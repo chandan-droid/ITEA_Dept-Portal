@@ -6,11 +6,12 @@ import {
   User,
   LogOut,
   Menu,
-  X
+  X,
+  Users
 } from 'lucide-react';
 
 export const Layout = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, hasPermission } = useAuth();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -32,6 +33,12 @@ export const Layout = () => {
       icon: User,
       show: true,
     },
+    {
+      to: '/employees',
+      label: 'Team Directory',
+      icon: Users,
+      show: hasPermission('EMPLOYEE_VIEW_TEAM'),
+    },
   ];
 
   return (
@@ -47,11 +54,11 @@ export const Layout = () => {
           </button>
           
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-large bg-primary flex items-center justify-center text-white font-bold text-lg shadow-sm">
-              I
+            <div className="w-8 h-8 rounded-large bg-primary flex items-center justify-center text-white font-extrabold text-xs shadow-sm">
+              MS
             </div>
             <span className="font-bold text-lg text-secondary-dark tracking-tight">
-              Department Portal
+              ITEA Portal
             </span>
           </div>
         </div>
@@ -60,12 +67,12 @@ export const Layout = () => {
         {user && (
           <div className="flex items-center gap-4">
             <div className="hidden sm:flex flex-col text-right">
-              <span className="text-sm font-semibold text-secondary-dark">{user.name}</span>
+              <span className="text-sm font-semibold text-secondary-dark">{user.displayName || user.name}</span>
               <span className="text-xs text-gray-400 font-medium">{user.role.replace('ROLE_', '')}</span>
             </div>
             
             <div className="w-9 h-9 rounded-full bg-primary-light text-primary-dark font-bold flex items-center justify-center shadow-sm select-none border border-primary/20">
-              {user.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+              {(user.displayName || user.name || 'U').split(' ').map(n => n[0]).join('').toUpperCase()}
             </div>
 
             <button

@@ -131,7 +131,7 @@ public class AuthServiceTest {
         assertEquals(token, response.getToken());
         assertEquals("dev@company.com", response.getEmail());
         assertEquals("Test User", response.getName());
-        assertEquals("ROLE_PORTAL_USER", response.getRole());
+        assertEquals("ROLE_USER", response.getRole());
 
         // Verify Spring Security Context
         assertNotNull(SecurityContextHolder.getContext().getAuthentication());
@@ -144,7 +144,7 @@ public class AuthServiceTest {
     @Test
     public void testAuthenticate_Success_ExistingUser() {
         String username = "dev";
-        String token = generateToken(username, List.of("DE_CGV4", "ADMIN"));
+        String token = generateToken(username, List.of("DE_CGV4", "DE_CGV4_ADMIN"));
 
         // Mock IDP auth response
         Map<String, Object> authResponse = Map.of("access_token", token);
@@ -161,7 +161,7 @@ public class AuthServiceTest {
                 .samAccountName(username)
                 .displayName("Old Name")
                 .email("old@company.com")
-                .role("ROLE_PORTAL_ADMIN")
+                .role("ROLE_ADMIN")
                 .build();
         when(userFacade.getUserBySamAccountName(username)).thenReturn(Optional.of(existing));
         when(userFacade.createOrUpdateUser(any(UserDTO.class))).thenAnswer(invocation -> {
@@ -177,7 +177,7 @@ public class AuthServiceTest {
         // Verify
         assertNotNull(response);
         assertEquals("Test User", response.getName());
-        assertEquals("ROLE_PORTAL_ADMIN", response.getRole());
+        assertEquals("ROLE_ADMIN", response.getRole());
         verify(userFacade).createOrUpdateUser(any(UserDTO.class));
         verify(userFacade).auditLogin(eq(1L), anyString(), eq("127.0.0.1"), eq("Mozilla/5.0"), eq("SUCCESS"), isNull());
     }

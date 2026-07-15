@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+
+  # 1. Mock Identity Provider & LDAP Server
+  idp-service:
+    build:
+      context: ./IDP_Service
+      dockerfile: Dockerfile
+    container_name: idp-service
+    ports:
+      - "8080:8080"
+      - "8389:8389"
+    env_file:
+      - ./IDP_Service/.env
+    volumes:
+      - ./IDP_Service/setup.ldif:/app/setup.ldif
+    restart: unless-stopped
+
+  # 2. Portal Backend modular monolith
+  backend-server:
+    build:
+      context: ./ITEA_Dept_Portal_Backend
+      dockerfile: Dockerfile
+    container_name: itea_dept_portal_backend
+    ports:
+      - "8081:8081"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://aws-1-ap-south-1.pooler.supabase.com:5432/postgres
+      - SPRING_DATASOURCE_USERNAME=postgres.wvodzeuwfbbqszztwjgx
+      - SPRING_DATASOURCE_PASSWORD=,cwjwpt8UAetzA@
+      - MOCKIDP_URL=http://idp-service:8080
+    depends_on:
+      - idp-service
+    restart: always
+
+  # 3. React Frontend served via Nginx
+  frontend-app:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: itea_dept_portal_frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend-server
+    restart: always

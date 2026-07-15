@@ -96,6 +96,9 @@ public class LdapServerService {
         return dns;
     }
 
+    private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder = 
+            new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder();
+
     public void createUser(String uid, String cn, String sn, String mail, String password) throws Exception {
         createUser(uid, cn, sn, mail, password, null);
     }
@@ -108,7 +111,7 @@ public class LdapServerService {
         entry.addAttribute("cn", cn);
         entry.addAttribute("sn", sn);
         entry.addAttribute("mail", mail);
-        entry.addAttribute("userPassword", password);
+        entry.addAttribute("userPassword", passwordEncoder.encode(password));
         if (employeeNumber != null && !employeeNumber.trim().isEmpty()) {
             entry.addAttribute("employeeNumber", employeeNumber);
         }

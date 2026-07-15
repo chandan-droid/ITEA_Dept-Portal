@@ -101,10 +101,13 @@ class IdpServiceApplicationTests {
         // 1. Get initial users
         mockMvc.perform(get("/api/users"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(3)))
-                .andExpect(jsonPath("$[0]", containsString("uid=dev")))
-                .andExpect(jsonPath("$[1]", containsString("uid=john")))
-                .andExpect(jsonPath("$[2]", containsString("uid=rakesh")));
+                .andExpect(jsonPath("$", hasSize(6)))
+                .andExpect(jsonPath("$", hasItem(containsString("uid=dev"))))
+                .andExpect(jsonPath("$", hasItem(containsString("uid=john"))))
+                .andExpect(jsonPath("$", hasItem(containsString("uid=rakesh"))))
+                .andExpect(jsonPath("$", hasItem(containsString("uid=satyam"))))
+                .andExpect(jsonPath("$", hasItem(containsString("uid=soumya"))))
+                .andExpect(jsonPath("$", hasItem(containsString("uid=asish"))));
 
         // 2. Create new user
         String newUserBody = "{\"uid\":\"alice\",\"cn\":\"Alice\",\"sn\":\"Wonder\",\"mail\":\"alice@msil.co.in\",\"password\":\"alice123\",\"employeeId\":\"1003\"}";
@@ -116,7 +119,7 @@ class IdpServiceApplicationTests {
         // 3. Verify user created
         mockMvc.perform(get("/api/users"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(4)))
+                .andExpect(jsonPath("$", hasSize(7)))
                 .andExpect(jsonPath("$", hasItem(containsString("uid=alice"))));
 
         // 4. Authenticate new user
@@ -138,7 +141,7 @@ class IdpServiceApplicationTests {
         // 6. Verify user deleted
         mockMvc.perform(get("/api/users"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(3)))
+                .andExpect(jsonPath("$", hasSize(6)))
                 .andExpect(jsonPath("$", not(hasItem(containsString("uid=alice")))));
     }
 
@@ -155,10 +158,10 @@ class IdpServiceApplicationTests {
         mockMvc.perform(post("/api/reset"))
                 .andExpect(status().isOk());
 
-        // Verify user list is back to original 3 users
+        // Verify user list is back to original 6 users
         mockMvc.perform(get("/api/users"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(3)))
+                .andExpect(jsonPath("$", hasSize(6)))
                 .andExpect(jsonPath("$", not(hasItem(containsString("uid=temp")))));
     }
 
@@ -184,12 +187,12 @@ class IdpServiceApplicationTests {
         var memberOf = decoded.getClaim("memberOf").asList(String.class);
         org.junit.jupiter.api.Assertions.assertNotNull(memberOf);
         org.junit.jupiter.api.Assertions.assertTrue(memberOf.contains("DE_CGV4"));
-        org.junit.jupiter.api.Assertions.assertTrue(memberOf.contains("ADMIN"));
-        org.junit.jupiter.api.Assertions.assertTrue(memberOf.contains("MANAGER"));
+        org.junit.jupiter.api.Assertions.assertTrue(memberOf.contains("DE_CGV4_ADMIN"));
+        org.junit.jupiter.api.Assertions.assertTrue(memberOf.contains("DE_CGV4_MANAGER"));
 
         var roles = decoded.getClaim("roles").asList(String.class);
         org.junit.jupiter.api.Assertions.assertNotNull(roles);
-        org.junit.jupiter.api.Assertions.assertTrue(roles.contains("ROLE_PORTAL_ADMIN"));
+        org.junit.jupiter.api.Assertions.assertTrue(roles.contains("ROLE_ADMIN"));
         org.junit.jupiter.api.Assertions.assertTrue(roles.contains("ROLE_MANAGER"));
     }
 

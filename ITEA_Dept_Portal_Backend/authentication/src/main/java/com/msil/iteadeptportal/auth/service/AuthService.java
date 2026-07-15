@@ -124,13 +124,13 @@ public class AuthService {
         }
 
         // Map Active Directory security groups to target Portal roles:
-        // DE_CGV4           -> ROLE_PORTAL_USER
-        // DE_CGV4 + ADMIN   -> ROLE_PORTAL_ADMIN
+        // DE_CGV4           -> ROLE_USER
+        // DE_CGV4 + ADMIN   -> ROLE_ADMIN
         // DE_CGV4 + MANAGER -> ROLE_MANAGER
-        String portalRole = "ROLE_PORTAL_USER";
-        if (memberOf.contains("ADMIN")) {
-            portalRole = "ROLE_PORTAL_ADMIN";
-        } else if (memberOf.contains("MANAGER")) {
+        String portalRole = "ROLE_USER";
+        if (memberOf.contains("DE_CGV4_ADMIN")) {
+            portalRole = "ROLE_ADMIN";
+        } else if (memberOf.contains("DE_CGV4_MANAGER")) {
             portalRole = "ROLE_MANAGER";
         }
 
@@ -192,6 +192,10 @@ public class AuthService {
                     .build();
             return verifier.verify(token);
         }
+    }
+
+    public DecodedJWT validateToken(String token) {
+        return verifyJwt(token);
     }
 
     @SuppressWarnings("unchecked")

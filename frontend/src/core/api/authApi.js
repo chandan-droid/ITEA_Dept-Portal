@@ -26,5 +26,24 @@ export const authApi = {
     } catch (e) {
       console.warn('Logout endpoint returned error', e);
     }
+  },
+
+  getMe: async () => {
+    try {
+      const response = await apiClient.get('/api/me');
+      if (response.data && response.data.success) {
+        return response.data.data;
+      }
+      throw new Error(response.data?.message || 'Failed to retrieve profile');
+    } catch (error) {
+      console.error('API getMe failed:', error);
+      if (error.response && error.response.data) {
+        const apiMsg = error.response.data.message || error.response.data.error;
+        if (apiMsg) {
+          throw new Error(apiMsg);
+        }
+      }
+      throw new Error(error.message || 'Server connection error');
+    }
   }
 };

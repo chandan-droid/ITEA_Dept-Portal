@@ -5,6 +5,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.stereotype.Service;
 
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import java.util.List;
 import java.util.Map;
 
@@ -15,6 +17,7 @@ public class AuthenticationService {
     private final GroupService groupService;
     private final ActiveDirectoryMapper activeDirectoryMapper;
     private final JwtService jwtService;
+    private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     @Autowired
     public AuthenticationService(LdapServerService ldapServerService,
@@ -38,7 +41,7 @@ public class AuthenticationService {
         }
 
         String storedPassword = userEntry.getAttributeValue("userPassword");
-        if (storedPassword == null || !storedPassword.equals(password)) {
+        if (storedPassword == null || !passwordEncoder.matches(password, storedPassword)) {
             throw new BadCredentialsException("Invalid username or password");
         }
 
