@@ -7,6 +7,7 @@ COPY pom.xml .
 COPY shared/pom.xml shared/
 COPY employee-management/pom.xml employee-management/
 COPY authentication/pom.xml authentication/
+COPY attendance-management/pom.xml attendance-management/
 COPY app/pom.xml app/
 
 # Fetch dependencies offline for caching
@@ -16,6 +17,7 @@ RUN mvn dependency:go-offline -B
 COPY shared shared
 COPY employee-management employee-management
 COPY authentication authentication
+COPY attendance-management attendance-management
 COPY app app
 
 # Compile and package modular monolith omitting test suite execution

@@ -325,5 +325,166 @@ Returned if the specified user ID does not exist in the database.
   "message": "User not found with ID: 999",
   "data": null,
   "timestamp": "2026-07-14T12:09:59.123456"
+```
+
+---
+
+## 5. POST /api/attendance/check-in
+
+Records the employee's check-in time for the current working day.
+
+- **HTTP Method**: `POST`
+- **Path**: `/api/attendance/check-in`
+- **Security**: Required (`ATTENDANCE_CHECK_IN`)
+- **Request Body**:
+```json
+{
+  "latitude": 28.4595,
+  "longitude": 77.0266
 }
 ```
+
+### Responses
+#### 200 OK (Success)
+```json
+{
+  "success": true,
+  "message": "Check-in successful.",
+  "data": {
+    "attendanceId": 125,
+    "checkInTime": "2026-07-15T09:00:00"
+  },
+  "timestamp": "2026-07-15T09:00:01"
+}
+```
+
+---
+
+## 6. POST /api/attendance/check-out
+
+Records the employee's check-out time and calculates working minutes.
+
+- **HTTP Method**: `POST`
+- **Path**: `/api/attendance/check-out`
+- **Security**: Required (`ATTENDANCE_CHECK_OUT`)
+
+### Responses
+#### 200 OK (Success)
+```json
+{
+  "success": true,
+  "message": "Check-out successful.",
+  "data": {
+    "workingMinutes": 480,
+    "attendanceStatus": "PRESENT"
+  },
+  "timestamp": "2026-07-15T17:00:00"
+}
+```
+
+---
+
+## 7. GET /api/attendance/today
+
+Retrieves the today's check-in / check-out status of the user.
+
+- **HTTP Method**: `GET`
+- **Path**: `/api/attendance/today`
+- **Security**: Required (`ATTENDANCE_VIEW_SELF`)
+
+### Responses
+#### 200 OK (Success)
+```json
+{
+  "success": true,
+  "message": "Today's attendance retrieved.",
+  "data": {
+    "attendanceDate": "2026-07-15",
+    "checkInTime": "09:00",
+    "checkOutTime": "17:00",
+    "workingMinutes": 480,
+    "status": "PRESENT"
+  },
+  "timestamp": "2026-07-15T17:01:00"
+}
+```
+
+---
+
+## 8. GET /api/attendance/calendar
+
+Retrieves calendar status entries for a specific month.
+
+- **HTTP Method**: `GET`
+- **Path**: `/api/attendance/calendar`
+- **Security**: Required (`ATTENDANCE_VIEW_SELF`)
+- **Query Parameters**:
+  - `month` (Integer, Optional): default current month
+  - `year` (Integer, Optional): default current year
+
+---
+
+## 9. GET /api/attendance/history
+
+Returns paginated own attendance records for a date range.
+
+- **HTTP Method**: `GET`
+- **Path**: `/api/attendance/history`
+- **Security**: Required (`ATTENDANCE_HISTORY_VIEW`)
+- **Query Parameters**:
+  - `fromDate` (String, Optional)
+  - `toDate` (String, Optional)
+  - `status` (String, Optional)
+  - `page` (Integer, Optional)
+  - `size` (Integer, Optional)
+
+---
+
+## 10. GET /api/attendance/search
+
+Enables managers/admins to search team attendance.
+
+- **HTTP Method**: `GET`
+- **Path**: `/api/attendance/search`
+- **Security**: Required (`ATTENDANCE_VIEW_TEAM`)
+
+---
+
+## 11. GET /api/team/attendance
+
+Returns team attendance summary for a specific day.
+
+- **HTTP Method**: `GET`
+- **Path**: `/api/team/attendance`
+- **Security**: Required (`ATTENDANCE_VIEW_TEAM`)
+
+---
+
+## 12. GET /api/reports/attendance
+
+Returns personal attendance summary counts.
+
+- **HTTP Method**: `GET`
+- **Path**: `/api/reports/attendance`
+- **Security**: Required (`ATTENDANCE_REPORT_VIEW`)
+
+---
+
+## 13. GET /api/reports/team-attendance
+
+Returns team attendance summary report.
+
+- **HTTP Method**: `GET`
+- **Path**: `/api/reports/team-attendance`
+- **Security**: Required (`ATTENDANCE_REPORT_VIEW`)
+
+---
+
+## 14. GET /api/leaves/balances
+
+Retrieves active leave balances for current year.
+
+- **HTTP Method**: `GET`
+- **Path**: `/api/leaves/balances`
+- **Security**: Required (`LEAVE_VIEW_SELF`)
+

@@ -7,7 +7,8 @@ import {
   LogOut,
   Menu,
   X,
-  Users
+  Users,
+  Clock
 } from 'lucide-react';
 
 export const Layout = () => {
@@ -32,6 +33,12 @@ export const Layout = () => {
       label: 'My Profile',
       icon: User,
       show: true,
+    },
+    {
+      to: '/attendance',
+      label: 'Attendance',
+      icon: Clock,
+      show: hasPermission('ATTENDANCE_VIEW_SELF'),
     },
     {
       to: '/employees',

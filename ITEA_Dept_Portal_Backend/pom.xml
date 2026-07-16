@@ -19,6 +19,7 @@
         <module>shared</module>
         <module>employee-management</module>
         <module>authentication</module>
+        <module>attendance-management</module>
         <module>app</module>
     </modules>
 

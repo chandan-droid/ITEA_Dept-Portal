@@ -24,6 +24,10 @@
         </dependency>
         <dependency>
             <groupId>com.msil</groupId>
+            <artifactId>attendance-management</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.msil</groupId>
             <artifactId>authentication</artifactId>
         </dependency>
 
