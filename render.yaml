@@ -7,7 +7,7 @@ services:
     name: idp-service
     env: docker
     dockerContext: ./IDP_Service
-    dockerfilePath: Dockerfile
+    dockerfilePath: ./IDP_Service/Dockerfile
     plan: free
     envVars:
       - fromGroup: portal-shared-env
@@ -17,7 +17,7 @@ services:
     name: itea-dept-portal-backend
     env: docker
     dockerContext: ./ITEA_Dept_Portal_Backend
-    dockerfilePath: Dockerfile
+    dockerfilePath: ./ITEA_Dept_Portal_Backend/Dockerfile
     plan: free
     envVars:
       - fromGroup: portal-shared-env
@@ -34,7 +34,7 @@ services:
     name: itea-dept-portal-frontend
     env: docker
     dockerContext: ./frontend
-    dockerfilePath: Dockerfile
+    dockerfilePath: ./frontend/Dockerfile
     plan: free
     envVars:
       - fromGroup: portal-shared-env
