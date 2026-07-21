@@ -26,7 +26,7 @@ services:
     build:
       context: ./ITEA_Dept_Portal_Backend
       dockerfile: Dockerfile
-    container_name: itea_dept_portal_backend
+    container_name: itea-dept-portal-backend
     ports:
       - "8081:8081"
     env_file:
