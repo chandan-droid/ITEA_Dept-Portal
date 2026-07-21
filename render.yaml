@@ -29,7 +29,7 @@ services:
           name: idp-service
           property: host
 
-  # 3. React Frontend Application (Nginx static files)
+  # 3. React Frontend Application (Nginx)
   - type: web
     name: itea-dept-portal-frontend
     env: docker
@@ -38,5 +38,3 @@ services:
     plan: free
     envVars:
       - fromGroup: portal-shared-env
-      - key: VITE_API_BASE_URL
-        value: "https://itea-dept-portal-backend-gdqr.onrender.com"
