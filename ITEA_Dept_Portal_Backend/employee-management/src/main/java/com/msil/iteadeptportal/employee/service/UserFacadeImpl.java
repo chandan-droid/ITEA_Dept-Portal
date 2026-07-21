@@ -33,6 +33,12 @@ public class UserFacadeImpl implements UserFacade {
     }
 
     @Override
+    public Optional<UserDTO> getUserById(Long userId) {
+        return userService.getUserById(userId)
+                .map(user -> mapToDTO(user, userService.getUserRoleName(user.getUserId())));
+    }
+
+    @Override
     public UserDTO createOrUpdateUser(UserDTO userDTO) {
         User user = mapToEntity(userDTO);
         String roleName = userDTO.getRole() != null ? userDTO.getRole() : "ROLE_PORTAL_USER";
@@ -198,5 +204,10 @@ public class UserFacadeImpl implements UserFacade {
     @Override
     public void deactivateUser(Long userId) {
         userService.deactivateUser(userId);
+    }
+
+    @Override
+    public List<Long> getAllActiveUserIds() {
+        return userService.getAllActiveUserIds();
     }
 }

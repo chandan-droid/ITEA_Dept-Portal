@@ -5,4 +5,7 @@ public interface TeamAttendanceProjection {
     String getEmployeeId();
     String getDisplayName();
     String getStatus();
+    String getCheckInTime();
+    String getCheckOutTime();
+    Integer getWorkingMinutes();
 }

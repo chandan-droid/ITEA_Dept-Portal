@@ -10,6 +10,7 @@ import java.util.List;
 @Repository
 public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long> {
     Page<LeaveRequest> findByUserIdOrderByCreatedAtDesc(Long userId, Pageable pageable);
+    List<LeaveRequest> findByUserId(Long userId);
     List<LeaveRequest> findByUserIdAndStatus(Long userId, String status);
     List<LeaveRequest> findByStatus(String status);
 }

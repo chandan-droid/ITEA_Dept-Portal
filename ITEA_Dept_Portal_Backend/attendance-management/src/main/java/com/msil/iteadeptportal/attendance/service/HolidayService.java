@@ -33,4 +33,44 @@ public class HolidayService {
                         .build())
                 .collect(Collectors.toList());
     }
+
+    public HolidayDTO createHoliday(HolidayDTO dto) {
+        if (dto.getHolidayDate() == null || dto.getHolidayName() == null || dto.getHolidayName().isBlank()) {
+            throw new IllegalArgumentException("Holiday date and name are required.");
+        }
+        Holiday holiday = Holiday.builder()
+                .holidayDate(dto.getHolidayDate())
+                .holidayName(dto.getHolidayName().trim())
+                .description(dto.getHolidayName())
+                .isOptional(dto.getIsOptional() != null ? dto.getIsOptional() : false)
+                .build();
+        holiday = holidayRepository.save(holiday);
+        return HolidayDTO.builder()
+                .holidayId(holiday.getHolidayId())
+                .holidayDate(holiday.getHolidayDate())
+                .holidayName(holiday.getHolidayName())
+                .isOptional(holiday.getIsOptional())
+                .build();
+    }
+
+    public HolidayDTO updateHoliday(Long id, HolidayDTO dto) {
+        Holiday holiday = holidayRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Holiday not found: " + id));
+        if (dto.getHolidayDate() != null) holiday.setHolidayDate(dto.getHolidayDate());
+        if (dto.getHolidayName() != null && !dto.getHolidayName().isBlank()) {
+            holiday.setHolidayName(dto.getHolidayName().trim());
+        }
+        if (dto.getIsOptional() != null) holiday.setIsOptional(dto.getIsOptional());
+        holidayRepository.save(holiday);
+        return HolidayDTO.builder()
+                .holidayId(holiday.getHolidayId())
+                .holidayDate(holiday.getHolidayDate())
+                .holidayName(holiday.getHolidayName())
+                .isOptional(holiday.getIsOptional())
+                .build();
+    }
+
+    public void deleteHoliday(Long id) {
+        holidayRepository.deleteById(id);
+    }
 }

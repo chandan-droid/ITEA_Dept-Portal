@@ -28,6 +28,14 @@
         </dependency>
         <dependency>
             <groupId>com.msil</groupId>
+            <artifactId>projects-management</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.msil</groupId>
+            <artifactId>tasks-management</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.msil</groupId>
             <artifactId>authentication</artifactId>
         </dependency>
 
@@ -54,6 +62,12 @@
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
             <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>me.paulschwarz</groupId>
+            <artifactId>spring-dotenv</artifactId>
+            <version>4.0.0</version>
         </dependency>
 
         <!-- Testing -->

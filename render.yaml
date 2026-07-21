@@ -1,0 +1,40 @@
+envVarGroups:
+  - name: portal-shared-env
+
+services:
+  # 1. Identity Provider Service (Mock IDP & LDAP)
+  - type: web
+    name: idp-service
+    env: docker
+    dockerContext: ./IDP_Service
+    dockerfilePath: ./IDP_Service/Dockerfile
+    plan: free
+    envVars:
+      - fromGroup: portal-shared-env
+
+  # 2. Portal Backend Modular Monolith
+  - type: web
+    name: itea-dept-portal-backend
+    env: docker
+    dockerContext: ./ITEA_Dept_Portal_Backend
+    dockerfilePath: ./ITEA_Dept_Portal_Backend/Dockerfile
+    plan: free
+    envVars:
+      - fromGroup: portal-shared-env
+      - key: PORT
+        value: "8081"
+      - key: MOCKIDP_URL
+        fromService:
+          type: web
+          name: idp-service
+          property: host
+
+  # 3. React Frontend Application (Nginx)
+  - type: web
+    name: itea-dept-portal-frontend
+    env: docker
+    dockerContext: ./frontend
+    dockerfilePath: ./frontend/Dockerfile
+    plan: free
+    envVars:
+      - fromGroup: portal-shared-env

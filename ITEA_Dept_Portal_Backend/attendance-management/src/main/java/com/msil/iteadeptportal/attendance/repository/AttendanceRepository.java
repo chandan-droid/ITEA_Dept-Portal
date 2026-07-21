@@ -17,6 +17,8 @@ public interface AttendanceRepository extends JpaRepository<AttendanceRecord, Lo
 
     Optional<AttendanceRecord> findByUserIdAndAttendanceDate(Long userId, LocalDate date);
 
+    List<AttendanceRecord> findByAttendanceDate(LocalDate date);
+
     List<AttendanceRecord> findByUserIdAndAttendanceDateBetween(Long userId, LocalDate fromDate, LocalDate toDate);
 
     Page<AttendanceRecord> findByUserIdAndAttendanceDateBetween(
@@ -37,10 +39,10 @@ public interface AttendanceRepository extends JpaRepository<AttendanceRecord, Lo
                    a.working_minutes AS workingMinutes
             FROM attendance_records a
             JOIN users u ON a.user_id = u.user_id
-            WHERE (:status    IS NULL OR a.attendance_status = :status)
+            WHERE (CAST(:status AS varchar) IS NULL OR a.attendance_status = :status)
               AND (:fromDate  IS NULL OR a.attendance_date >= CAST(:fromDate  AS date))
               AND (:toDate    IS NULL OR a.attendance_date <= CAST(:toDate    AS date))
-              AND (:search    IS NULL
+              AND (CAST(:search AS varchar) IS NULL
                    OR u.employee_id  ILIKE '%' || :search || '%'
                    OR u.display_name ILIKE '%' || :search || '%')
             ORDER BY a.attendance_date DESC, u.display_name ASC
@@ -49,10 +51,10 @@ public interface AttendanceRepository extends JpaRepository<AttendanceRecord, Lo
             SELECT COUNT(*)
             FROM attendance_records a
             JOIN users u ON a.user_id = u.user_id
-            WHERE (:status    IS NULL OR a.attendance_status = :status)
+            WHERE (CAST(:status AS varchar) IS NULL OR a.attendance_status = :status)
               AND (:fromDate  IS NULL OR a.attendance_date >= CAST(:fromDate  AS date))
               AND (:toDate    IS NULL OR a.attendance_date <= CAST(:toDate    AS date))
-              AND (:search    IS NULL
+              AND (CAST(:search AS varchar) IS NULL
                    OR u.employee_id  ILIKE '%' || :search || '%'
                    OR u.display_name ILIKE '%' || :search || '%')
             """,
@@ -70,7 +72,10 @@ public interface AttendanceRepository extends JpaRepository<AttendanceRecord, Lo
     @Query(value = """
             SELECT u.employee_id  AS employeeId,
                    u.display_name AS displayName,
-                   COALESCE(a.attendance_status, 'ABSENT') AS status
+                   COALESCE(a.attendance_status, 'ABSENT') AS status,
+                   TO_CHAR(a.check_in_time, 'HH24:MI') AS checkInTime,
+                   TO_CHAR(a.check_out_time, 'HH24:MI') AS checkOutTime,
+                   a.working_minutes AS workingMinutes
             FROM users u
             LEFT JOIN attendance_records a
                ON a.user_id = u.user_id AND a.attendance_date = CAST(:date AS date)

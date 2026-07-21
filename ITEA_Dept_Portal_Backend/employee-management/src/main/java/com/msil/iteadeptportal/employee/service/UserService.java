@@ -29,6 +29,7 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
@@ -240,5 +241,13 @@ public class UserService {
 
         user.setStatus("INACTIVE");
         userRepository.save(user);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Long> getAllActiveUserIds() {
+        return userRepository.findAll().stream()
+                .filter(u -> "ACTIVE".equalsIgnoreCase(u.getStatus()))
+                .map(User::getUserId)
+                .collect(Collectors.toList());
     }
 }

@@ -16,4 +16,14 @@ public class PaginatedResponse<T> {
     private int size;
     private long totalElements;
     private int totalPages;
+
+    public static <T> PaginatedResponse<T> from(org.springframework.data.domain.Page<T> page) {
+        return PaginatedResponse.<T>builder()
+                .content(page.getContent())
+                .page(page.getNumber())
+                .size(page.getSize())
+                .totalElements(page.getTotalElements())
+                .totalPages(page.getTotalPages())
+                .build();
+    }
 }

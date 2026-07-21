@@ -45,9 +45,16 @@ public class AttendanceController {
 
     @PostMapping("/check-out")
     @PreAuthorize("hasAuthority('ATTENDANCE_CHECK_OUT')")
-    public ResponseEntity<ApiResponse<CheckOutResponse>> checkOut() {
+    public ResponseEntity<ApiResponse<CheckOutResponse>> checkOut(
+            @RequestBody(required = false) CheckOutRequest request,
+            HttpServletRequest httpRequest) {
+
         Long userId = resolveUserId();
-        CheckOutResponse response = attendanceService.checkOut(userId);
+        String ip   = extractClientIp(httpRequest);
+        Double lat  = request != null ? request.getLatitude()  : null;
+        Double lon  = request != null ? request.getLongitude() : null;
+
+        CheckOutResponse response = attendanceService.checkOut(userId, ip, lat, lon);
         return ResponseEntity.ok(ApiResponse.success(response, response.getMessage()));
     }
 
@@ -59,6 +66,16 @@ public class AttendanceController {
         Long userId = resolveUserId();
         TodayAttendanceDTO dto = attendanceService.getToday(userId);
         return ResponseEntity.ok(ApiResponse.success(dto, "Today's attendance retrieved."));
+    }
+
+    // ─── GET /api/attendance/status ───────────────────────────────────────────
+
+    @GetMapping("/status")
+    @PreAuthorize("hasAuthority('ATTENDANCE_VIEW_SELF')")
+    public ResponseEntity<ApiResponse<AttendanceStatusDTO>> getStatus() {
+        Long userId = resolveUserId();
+        AttendanceStatusDTO dto = attendanceService.getStatus(userId);
+        return ResponseEntity.ok(ApiResponse.success(dto, "Attendance status retrieved."));
     }
 
     // ─── GET /api/attendance/calendar ─────────────────────────────────────────

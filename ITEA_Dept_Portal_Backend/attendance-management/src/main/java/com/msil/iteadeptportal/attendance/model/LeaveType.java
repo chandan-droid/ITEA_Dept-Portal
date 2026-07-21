@@ -18,10 +18,17 @@ public class LeaveType {
     private Long leaveTypeId;
 
     @Column(name = "leave_name", nullable = false, unique = true)
+    private String leaveName;
+
+    @Column(name = "type_name", nullable = false, unique = true)
     private String typeName;
 
     @Column(name = "description")
     private String description;
+
+    @Column(name = "is_paid", nullable = false)
+    @Builder.Default
+    private Boolean isPaid = true;
 
     @Column(name = "max_days_per_year")
     private Integer maxDaysPerYear;

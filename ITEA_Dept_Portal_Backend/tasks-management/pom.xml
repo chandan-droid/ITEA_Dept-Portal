@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.msil</groupId>
+        <artifactId>iteadeptportal</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+    <artifactId>tasks-management</artifactId>
+    <name>tasks-management</name>
+    <description>Task Management Module</description>
+
+    <dependencies>
+        <!-- Shared utilities: ApiResponse, PaginatedResponse, StorageService -->
+        <dependency>
+            <groupId>com.msil</groupId>
+            <artifactId>shared</artifactId>
+        </dependency>
+
+        <!-- Employee module: UserFacade for user lookup -->
+        <dependency>
+            <groupId>com.msil</groupId>
+            <artifactId>employee-management</artifactId>
+        </dependency>
+
+        <!-- Projects module: project-member validation for project-specific tasks -->
+        <dependency>
+            <groupId>com.msil</groupId>
+            <artifactId>projects-management</artifactId>
+        </dependency>
+
+        <!-- Spring Boot Starters -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webmvc</artifactId>
+        </dependency>
+
+        <!-- Lombok -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+    </dependencies>
+</project>

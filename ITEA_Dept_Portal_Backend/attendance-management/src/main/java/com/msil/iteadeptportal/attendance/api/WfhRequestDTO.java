@@ -10,8 +10,12 @@ import java.time.LocalDateTime;
 @Data @NoArgsConstructor @AllArgsConstructor @Builder
 public class WfhRequestDTO {
     private Long wfhRequestId;
+    private Long userId;
+    private String employeeId;
+    private String employeeName;
+    private String email;
     private LocalDate wfhDate;
     private String reason;
-    private String status;   // PENDING, APPROVED, REJECTED
+    private String status;   // PENDING, APPROVED, REJECTED, CANCELLED
     private LocalDateTime createdAt;
 }

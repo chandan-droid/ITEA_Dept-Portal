@@ -21,19 +21,28 @@ public class WfhRequest {
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
+    @Column(name = "request_date", nullable = false)
+    private LocalDate requestDate;
+
     @Column(name = "wfh_date", nullable = false)
     private LocalDate wfhDate;
 
     @Column(name = "reason", columnDefinition = "TEXT")
     private String reason;
 
-    /** PENDING, APPROVED, REJECTED */
+    /** PENDING, APPROVED, REJECTED, CANCELLED */
     @Column(name = "status", nullable = false)
     @Builder.Default
     private String status = "PENDING";
 
     @Column(name = "approved_by")
     private Long approvedBy;
+
+    @Column(name = "approved_at")
+    private LocalDateTime approvedAt;
+
+    @Column(name = "rejection_reason", columnDefinition = "TEXT")
+    private String rejectionReason;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

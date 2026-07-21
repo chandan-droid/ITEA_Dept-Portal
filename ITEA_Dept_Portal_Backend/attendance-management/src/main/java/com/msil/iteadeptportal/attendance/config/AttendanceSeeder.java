@@ -27,30 +27,23 @@ public class AttendanceSeeder implements CommandLineRunner {
     @Override
     @org.springframework.transaction.annotation.Transactional
     public void run(String... args) {
-        // Drop the duplicate/unused type_name column that was incorrectly created by ddl-auto update
-        try {
-            entityManager.createNativeQuery("ALTER TABLE leave_types DROP COLUMN IF EXISTS type_name").executeUpdate();
-        } catch (Exception e) {
-            System.err.println("Warning: Could not drop type_name column: " + e.getMessage());
-        }
-
         // 1. Seed Leave Types
         LeaveType sickLeave = seedLeaveType("Sick Leave", "Paid time off for sickness or medical reasons", 12);
         LeaveType casualLeave = seedLeaveType("Casual Leave", "Paid time off for personal matters", 15);
         LeaveType annualLeave = seedLeaveType("Earned Leave", "Annual vacation leave", 20);
 
         // 2. Seed Holidays for 2026
-        seedHoliday(LocalDate.of(2026, 1, 1), "New Year's Day", false);
-        seedHoliday(LocalDate.of(2026, 1, 26), "Republic Day", false);
-        seedHoliday(LocalDate.of(2026, 3, 6), "Holi", false);
-        seedHoliday(LocalDate.of(2026, 8, 15), "Independence Day", false);
-        seedHoliday(LocalDate.of(2026, 10, 2), "Gandhi Jayanti", false);
-        seedHoliday(LocalDate.of(2026, 11, 8), "Diwali", false);
-        seedHoliday(LocalDate.of(2026, 12, 25), "Christmas", false);
+        seedHoliday(LocalDate.of(2026, 1, 1), "New Year's Day", "COMPANY", false);
+        seedHoliday(LocalDate.of(2026, 1, 26), "Republic Day", "NATIONAL", false);
+        seedHoliday(LocalDate.of(2026, 3, 6), "Holi", "FESTIVAL", false);
+        seedHoliday(LocalDate.of(2026, 8, 15), "Independence Day", "NATIONAL", false);
+        seedHoliday(LocalDate.of(2026, 10, 2), "Gandhi Jayanti", "NATIONAL", false);
+        seedHoliday(LocalDate.of(2026, 11, 8), "Diwali", "FESTIVAL", false);
+        seedHoliday(LocalDate.of(2026, 12, 25), "Christmas", "FESTIVAL", false);
 
         // Optional holidays
-        seedHoliday(LocalDate.of(2026, 4, 14), "Ambedkar Jayanti", true);
-        seedHoliday(LocalDate.of(2026, 9, 5), "Janmashtami", true);
+        seedHoliday(LocalDate.of(2026, 4, 14), "Ambedkar Jayanti", "NATIONAL", true);
+        seedHoliday(LocalDate.of(2026, 9, 5), "Janmashtami", "FESTIVAL", true);
 
         // 3. Seed Leave Balances for all users
         int currentYear = LocalDate.now().getYear();
@@ -64,17 +57,21 @@ public class AttendanceSeeder implements CommandLineRunner {
     private LeaveType seedLeaveType(String name, String desc, int maxDays) {
         return leaveTypeRepository.findByTypeName(name)
                 .orElseGet(() -> leaveTypeRepository.save(LeaveType.builder()
+                        .leaveName(name)
                         .typeName(name)
                         .description(desc)
+                        .isPaid(true)
                         .maxDaysPerYear(maxDays)
                         .build()));
     }
 
-    private void seedHoliday(LocalDate date, String name, boolean isOptional) {
+    private void seedHoliday(LocalDate date, String name, String type, boolean isOptional) {
         if (!holidayRepository.existsByHolidayDate(date)) {
             holidayRepository.save(Holiday.builder()
                     .holidayDate(date)
                     .holidayName(name)
+                    .holidayType(type)
+                    .description(name)
                     .isOptional(isOptional)
                     .build());
         }
@@ -86,6 +83,7 @@ public class AttendanceSeeder implements CommandLineRunner {
             leaveBalanceRepository.save(LeaveBalance.builder()
                     .userId(userId)
                     .leaveTypeId(leaveTypeId)
+                    .allocatedDays(java.math.BigDecimal.valueOf(totalDays))
                     .totalDays(totalDays)
                     .usedDays(0)
                     .year(year)

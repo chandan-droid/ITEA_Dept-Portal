@@ -28,6 +28,8 @@ public class AttendanceService {
 
     private final AttendanceRepository attendanceRepository;
     private final HolidayRepository holidayRepository;
+    private final LeaveRequestRepository leaveRequestRepository;
+    private final WfhRequestRepository wfhRequestRepository;
 
     // ─── Check-In ─────────────────────────────────────────────────────────────
 
@@ -63,7 +65,7 @@ public class AttendanceService {
 
     // ─── Check-Out ────────────────────────────────────────────────────────────
 
-    public CheckOutResponse checkOut(Long userId) {
+    public CheckOutResponse checkOut(Long userId, String clientIp, Double latitude, Double longitude) {
         LocalDate today = LocalDate.now();
 
         AttendanceRecord record = attendanceRepository
@@ -78,15 +80,24 @@ public class AttendanceService {
         long minutes = ChronoUnit.MINUTES.between(record.getCheckInTime(), now);
         String status = minutes >= 480 ? "PRESENT" : "HALF_DAY";
 
+        // Build location string from GPS coords if provided
+        String location = (latitude != null && longitude != null)
+                ? latitude + "," + longitude
+                : null;
+
         record.setCheckOutTime(now);
         record.setWorkingMinutes((int) minutes);
         record.setAttendanceStatus(status);
+        record.setCheckOutIp(clientIp);
+        record.setCheckOutLocation(location);
         attendanceRepository.save(record);
 
         return CheckOutResponse.builder()
                 .message("Check-out successful.")
                 .workingMinutes((int) minutes)
                 .attendanceStatus(status)
+                .checkOutIp(clientIp)
+                .checkOutLocation(location)
                 .build();
     }
 
@@ -114,10 +125,43 @@ public class AttendanceService {
         LocalDate to   = from.withDayOfMonth(from.lengthOfMonth());
 
         // Attendance records keyed by date
-        Map<LocalDate, String> recordMap = attendanceRepository
+        Map<LocalDate, String> recordMap = new HashMap<>();
+        attendanceRepository
                 .findByUserIdAndAttendanceDateBetween(userId, from, to)
-                .stream()
-                .collect(Collectors.toMap(AttendanceRecord::getAttendanceDate, AttendanceRecord::getAttendanceStatus));
+                .forEach(r -> recordMap.put(r.getAttendanceDate(), r.getAttendanceStatus()));
+
+        // Leave requests (Approved & Pending)
+        List<com.msil.iteadeptportal.attendance.model.LeaveRequest> leaves = leaveRequestRepository.findByUserId(userId);
+        if (leaves != null) {
+            for (var l : leaves) {
+                if ("APPROVED".equalsIgnoreCase(l.getStatus()) || "PENDING".equalsIgnoreCase(l.getStatus())) {
+                    String st = "APPROVED".equalsIgnoreCase(l.getStatus()) ? "LEAVE" : "PENDING_LEAVE";
+                    LocalDate start = l.getFromDate();
+                    LocalDate end = l.getToDate();
+                    if (start != null && end != null) {
+                        for (LocalDate date = start; !date.isAfter(end); date = date.plusDays(1)) {
+                            if (!date.isBefore(from) && !date.isAfter(to)) {
+                                recordMap.putIfAbsent(date, st);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // WFH requests (Approved & Pending)
+        List<com.msil.iteadeptportal.attendance.model.WfhRequest> wfhs = wfhRequestRepository.findByUserId(userId);
+        if (wfhs != null) {
+            for (var w : wfhs) {
+                if ("APPROVED".equalsIgnoreCase(w.getStatus()) || "PENDING".equalsIgnoreCase(w.getStatus())) {
+                    String st = "APPROVED".equalsIgnoreCase(w.getStatus()) ? "WFH" : "PENDING_WFH";
+                    LocalDate wDate = w.getWfhDate();
+                    if (wDate != null && !wDate.isBefore(from) && !wDate.isAfter(to)) {
+                        recordMap.putIfAbsent(wDate, st);
+                    }
+                }
+            }
+        }
 
         // Holidays keyed by date
         Set<LocalDate> holidayDates = holidayRepository
@@ -229,21 +273,117 @@ public class AttendanceService {
     // ─── Team Attendance ──────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
+    public AttendanceStatusDTO getStatus(Long userId) {
+        LocalDate today = LocalDate.now();
+        Optional<AttendanceRecord> opt = attendanceRepository.findByUserIdAndAttendanceDate(userId, today);
+        if (opt.isEmpty()) {
+            return AttendanceStatusDTO.builder()
+                    .isCheckedIn(false)
+                    .isCheckedOut(false)
+                    .workingHours("0h 0m")
+                    .currentSessionDuration("0h 0m")
+                    .status("NOT_CHECKED_IN")
+                    .build();
+        }
+        AttendanceRecord r = opt.get();
+        boolean checkedIn = r.getCheckInTime() != null;
+        boolean checkedOut = r.getCheckOutTime() != null;
+        
+        long totalMinutes = r.getWorkingMinutes() != null ? r.getWorkingMinutes() : 0;
+        long sessionMinutes = 0;
+        if (checkedIn && !checkedOut) {
+            sessionMinutes = ChronoUnit.MINUTES.between(r.getCheckInTime(), LocalDateTime.now());
+            totalMinutes = sessionMinutes;
+        }
+
+        String workingHours = (totalMinutes / 60) + "h " + (totalMinutes % 60) + "m";
+        String sessionDuration = (sessionMinutes / 60) + "h " + (sessionMinutes % 60) + "m";
+
+        return AttendanceStatusDTO.builder()
+                .isCheckedIn(checkedIn)
+                .isCheckedOut(checkedOut)
+                .workingHours(workingHours)
+                .currentSessionDuration(sessionDuration)
+                .status(checkedOut ? r.getAttendanceStatus() : (checkedIn ? "CHECKED_IN" : "NOT_CHECKED_IN"))
+                .build();
+    }
+
+    // ─── Team Attendance ──────────────────────────────────────────────────────
+
+    @Transactional(readOnly = true)
     public TeamAttendanceDayDTO getTeamAttendance(LocalDate date) {
-        String dateStr = date.toString();
-        List<TeamAttendanceSummaryDTO> team = attendanceRepository.getTeamAttendance(dateStr)
+        LocalDate targetDate = date != null ? date : LocalDate.now();
+        String dateStr = targetDate.toString();
+        List<TeamMemberAttendanceDTO> team = attendanceRepository.getTeamAttendance(dateStr)
                 .stream()
-                .map(p -> TeamAttendanceSummaryDTO.builder()
+                .map(p -> TeamMemberAttendanceDTO.builder()
                         .employeeId(p.getEmployeeId())
                         .employeeName(p.getDisplayName())
                         .status(p.getStatus())
+                        .checkInTime(p.getCheckInTime())
+                        .checkOutTime(p.getCheckOutTime())
+                        .workingMinutes(p.getWorkingMinutes())
                         .build())
                 .collect(Collectors.toList());
 
         return TeamAttendanceDayDTO.builder()
-                .date(date)
+                .date(targetDate)
                 .teamAttendance(team)
                 .build();
+    }
+
+    @Transactional(readOnly = true)
+    public TeamAttendanceSummaryDTO getTeamAttendanceSummary(LocalDate date) {
+        LocalDate targetDate = date != null ? date : LocalDate.now();
+        List<AttendanceRecord> records = attendanceRepository.findByAttendanceDate(targetDate);
+        long present = 0, absent = 0, leave = 0, wfh = 0, checkedIn = 0, checkedOut = 0;
+        if (records != null) {
+            for (AttendanceRecord r : records) {
+                if ("PRESENT".equalsIgnoreCase(r.getAttendanceStatus())) present++;
+                else if ("ABSENT".equalsIgnoreCase(r.getAttendanceStatus())) absent++;
+                else if ("LEAVE".equalsIgnoreCase(r.getAttendanceStatus())) leave++;
+                else if ("WFH".equalsIgnoreCase(r.getAttendanceStatus())) wfh++;
+                
+                if (r.getCheckInTime() != null) checkedIn++;
+                if (r.getCheckOutTime() != null) checkedOut++;
+            }
+        }
+        return TeamAttendanceSummaryDTO.builder()
+                .totalPresent(present)
+                .totalAbsent(absent)
+                .totalLeave(leave)
+                .totalWfh(wfh)
+                .totalCheckedIn(checkedIn)
+                .totalCheckedOut(checkedOut)
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public PaginatedResponse<AttendanceSearchResultDTO> getEmployeeAttendance(
+            String employeeId, LocalDate fromDate, LocalDate toDate, int page, int size) {
+        return searchAttendance(employeeId, null, fromDate, toDate, page, size, "attendanceDate,desc");
+    }
+
+    @Transactional(readOnly = true)
+    public byte[] exportAttendanceReport(LocalDate fromDate, LocalDate toDate, String format) {
+        List<TeamReportEntryDTO> reportEntries = getTeamReport(
+                fromDate != null ? fromDate : LocalDate.now().minusDays(30),
+                toDate != null ? toDate : LocalDate.now()
+        );
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("Employee ID,Employee Name,Present,Absent,Leave,WFH,Half Day,Working Minutes\n");
+        for (TeamReportEntryDTO entry : reportEntries) {
+            sb.append(entry.getEmployeeId()).append(",")
+              .append("\"").append(entry.getEmployeeName()).append("\",")
+              .append(entry.getPresent()).append(",")
+              .append(entry.getAbsent()).append(",")
+              .append(entry.getLeave()).append(",")
+              .append(entry.getWfh()).append(",")
+              .append(entry.getHalfDay()).append(",")
+              .append(entry.getWorkingMinutes()).append("\n");
+        }
+        return sb.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
     }
 
     // ─── Personal Report ──────────────────────────────────────────────────────

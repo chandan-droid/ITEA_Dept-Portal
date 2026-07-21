@@ -2,6 +2,7 @@ package com.msil.iteadeptportal.attendance.model;
 
 import jakarta.persistence.*;
 import lombok.*;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -23,6 +24,9 @@ public class LeaveBalance {
 
     @Column(name = "leave_type_id", nullable = false)
     private Long leaveTypeId;
+
+    @Column(name = "allocated_days", nullable = false)
+    private BigDecimal allocatedDays;
 
     @Column(name = "total_days", nullable = false)
     private Integer totalDays;

@@ -10,5 +10,6 @@ import java.util.List;
 @Repository
 public interface WfhRequestRepository extends JpaRepository<WfhRequest, Long> {
     Page<WfhRequest> findByUserIdOrderByCreatedAtDesc(Long userId, Pageable pageable);
+    List<WfhRequest> findByUserId(Long userId);
     List<WfhRequest> findByStatus(String status);
 }

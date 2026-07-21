@@ -6,6 +6,7 @@ import java.util.Optional;
 
 public interface UserFacade {
     Optional<UserDTO> getUserBySamAccountName(String samAccountName);
+    Optional<UserDTO> getUserById(Long userId);
     UserDTO createOrUpdateUser(UserDTO userDTO);
     void auditLogin(Long userId, String jwtId, String ipAddress, String userAgent, String status, String failureReason);
     UserMeDTO getUserMeDetails(String samAccountName);
@@ -14,4 +15,5 @@ public interface UserFacade {
     List<String> getUserAuthorities(String samAccountName);
     void activateUser(Long userId);
     void deactivateUser(Long userId);
+    List<Long> getAllActiveUserIds();
 }

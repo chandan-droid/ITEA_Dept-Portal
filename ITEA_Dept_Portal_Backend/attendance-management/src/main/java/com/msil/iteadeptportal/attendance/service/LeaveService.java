@@ -15,10 +15,18 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+
+import com.msil.iteadeptportal.employee.api.UserFacade;
+import com.msil.iteadeptportal.shared.event.NotificationEvent;
+import org.springframework.context.ApplicationEventPublisher;
+
+import java.util.ArrayList;
+import java.util.Collections;
 
 @Service
 @RequiredArgsConstructor
@@ -29,6 +37,8 @@ public class LeaveService {
     private final LeaveTypeRepository leaveTypeRepository;
     private final LeaveBalanceRepository leaveBalanceRepository;
     private final WfhRequestRepository wfhRequestRepository;
+    private final ApplicationEventPublisher eventPublisher;
+    private final UserFacade userFacade;
 
     // ─── Leave Types ──────────────────────────────────────────────────────────
 
@@ -78,16 +88,38 @@ public class LeaveService {
             throw new IllegalArgumentException("Leave type is required.");
         }
 
+        long days = ChronoUnit.DAYS.between(dto.getFromDate(), dto.getToDate()) + 1;
+
         LeaveRequest request = LeaveRequest.builder()
                 .userId(userId)
                 .leaveTypeId(dto.getLeaveTypeId())
                 .fromDate(dto.getFromDate())
                 .toDate(dto.getToDate())
+                .startDate(dto.getFromDate())
+                .endDate(dto.getToDate())
+                .totalDays(java.math.BigDecimal.valueOf(days))
                 .reason(dto.getReason())
                 .status("PENDING")
+                .appliedAt(LocalDateTime.now())
                 .build();
 
         LeaveRequest saved = leaveRequestRepository.save(request);
+
+        // Notify managers/approvers excluding applicant
+        try {
+            eventPublisher.publishEvent(new NotificationEvent(
+                    getManagerOrAdminUserIds(userId),
+                    "LEAVE",
+                    "New Leave Request Submitted",
+                    "Leave request from " + saved.getFromDate() + " to " + saved.getToDate() + " has been submitted.",
+                    "LEAVE",
+                    saved.getLeaveRequestId(),
+                    userId
+            ));
+        } catch (Exception e) {
+            // Log warning without failing leave submission
+        }
+
         return mapToDTO(saved);
     }
 
@@ -121,6 +153,7 @@ public class LeaveService {
 
         request.setStatus("APPROVED");
         request.setApprovedBy(approverId);
+        request.setApprovedAt(LocalDateTime.now());
         leaveRequestRepository.save(request);
 
         // Deduct from leave balance
@@ -131,6 +164,21 @@ public class LeaveService {
                     lb.setUsedDays(lb.getUsedDays() + (int) days);
                     leaveBalanceRepository.save(lb);
                 });
+
+        // Notify applicant excluding manager actor
+        try {
+            eventPublisher.publishEvent(new NotificationEvent(
+                    List.of(request.getUserId()),
+                    "LEAVE",
+                    "Leave Request Approved",
+                    "Your leave request from " + request.getFromDate() + " to " + request.getToDate() + " has been approved.",
+                    "LEAVE",
+                    request.getLeaveRequestId(),
+                    approverId
+            ));
+        } catch (Exception e) {
+            // Ignore notification error
+        }
 
         return mapToDTO(request);
     }
@@ -147,8 +195,25 @@ public class LeaveService {
 
         request.setStatus("REJECTED");
         request.setApprovedBy(approverId);
+        request.setApprovedAt(LocalDateTime.now());
         request.setRejectionReason(rejectionReason);
         leaveRequestRepository.save(request);
+
+        // Notify applicant excluding manager actor
+        try {
+            eventPublisher.publishEvent(new NotificationEvent(
+                    List.of(request.getUserId()),
+                    "LEAVE",
+                    "Leave Request Rejected",
+                    "Your leave request from " + request.getFromDate() + " to " + request.getToDate() + " was rejected." + (rejectionReason != null ? " Reason: " + rejectionReason : ""),
+                    "LEAVE",
+                    request.getLeaveRequestId(),
+                    approverId
+            ));
+        } catch (Exception e) {
+            // Ignore notification error
+        }
+
         return mapToDTO(request);
     }
 
@@ -160,11 +225,28 @@ public class LeaveService {
         }
         WfhRequest request = WfhRequest.builder()
                 .userId(userId)
+                .requestDate(LocalDate.now())
                 .wfhDate(dto.getWfhDate())
                 .reason(dto.getReason())
                 .status("PENDING")
                 .build();
         WfhRequest saved = wfhRequestRepository.save(request);
+
+        // Notify managers excluding applicant
+        try {
+            eventPublisher.publishEvent(new NotificationEvent(
+                    getManagerOrAdminUserIds(userId),
+                    "WFH",
+                    "New WFH Request Submitted",
+                    "Work From Home request for date " + saved.getWfhDate() + " has been submitted.",
+                    "WFH",
+                    saved.getWfhRequestId(),
+                    userId
+            ));
+        } catch (Exception e) {
+            // Ignore notification error
+        }
+
         return mapWfhToDTO(saved);
     }
 
@@ -185,7 +267,24 @@ public class LeaveService {
         }
         request.setStatus("APPROVED");
         request.setApprovedBy(approverId);
+        request.setApprovedAt(LocalDateTime.now());
         wfhRequestRepository.save(request);
+
+        // Notify applicant excluding manager actor
+        try {
+            eventPublisher.publishEvent(new NotificationEvent(
+                    List.of(request.getUserId()),
+                    "WFH",
+                    "WFH Request Approved",
+                    "Your WFH request for " + request.getWfhDate() + " has been approved.",
+                    "WFH",
+                    request.getWfhRequestId(),
+                    approverId
+            ));
+        } catch (Exception e) {
+            // Ignore notification error
+        }
+
         return mapWfhToDTO(request);
     }
 
@@ -197,7 +296,24 @@ public class LeaveService {
         }
         request.setStatus("REJECTED");
         request.setApprovedBy(approverId);
+        request.setApprovedAt(LocalDateTime.now());
         wfhRequestRepository.save(request);
+
+        // Notify applicant excluding manager actor
+        try {
+            eventPublisher.publishEvent(new NotificationEvent(
+                    List.of(request.getUserId()),
+                    "WFH",
+                    "WFH Request Rejected",
+                    "Your WFH request for " + request.getWfhDate() + " was rejected.",
+                    "WFH",
+                    request.getWfhRequestId(),
+                    approverId
+            ));
+        } catch (Exception e) {
+            // Ignore notification error
+        }
+
         return mapWfhToDTO(request);
     }
 
@@ -206,12 +322,39 @@ public class LeaveService {
     private LeaveRequestDTO mapToDTO(LeaveRequest r) {
         String typeName = leaveTypeRepository.findById(r.getLeaveTypeId())
                 .map(LeaveType::getTypeName).orElse("Unknown");
+
+        String empId = null;
+        String empName = null;
+        String email = null;
+        if (r.getUserId() != null && userFacade != null) {
+            try {
+                var optUser = userFacade.getUserById(r.getUserId());
+                if (optUser.isPresent()) {
+                    empId = optUser.get().getEmployeeId();
+                    empName = optUser.get().getDisplayName();
+                    email = optUser.get().getEmail();
+                }
+            } catch (Exception e) {
+                // Fallback
+            }
+        }
+
+        int totalDays = 1;
+        if (r.getFromDate() != null && r.getToDate() != null) {
+            totalDays = (int) (java.time.temporal.ChronoUnit.DAYS.between(r.getFromDate(), r.getToDate()) + 1);
+        }
+
         return LeaveRequestDTO.builder()
                 .leaveRequestId(r.getLeaveRequestId())
                 .leaveTypeId(r.getLeaveTypeId())
                 .leaveTypeName(typeName)
+                .userId(r.getUserId())
+                .employeeId(empId)
+                .employeeName(empName)
+                .email(email)
                 .fromDate(r.getFromDate())
                 .toDate(r.getToDate())
+                .totalDays(totalDays)
                 .reason(r.getReason())
                 .status(r.getStatus())
                 .rejectionReason(r.getRejectionReason())
@@ -220,12 +363,108 @@ public class LeaveService {
     }
 
     private WfhRequestDTO mapWfhToDTO(WfhRequest r) {
+        String empId = null;
+        String empName = null;
+        String email = null;
+        if (r.getUserId() != null && userFacade != null) {
+            try {
+                var optUser = userFacade.getUserById(r.getUserId());
+                if (optUser.isPresent()) {
+                    empId = optUser.get().getEmployeeId();
+                    empName = optUser.get().getDisplayName();
+                    email = optUser.get().getEmail();
+                }
+            } catch (Exception e) {
+                // Fallback
+            }
+        }
+
         return WfhRequestDTO.builder()
                 .wfhRequestId(r.getWfhRequestId())
+                .userId(r.getUserId())
+                .employeeId(empId)
+                .employeeName(empName)
+                .email(email)
                 .wfhDate(r.getWfhDate())
                 .reason(r.getReason())
                 .status(r.getStatus())
                 .createdAt(r.getCreatedAt())
                 .build();
+    }
+
+    public LeaveRequestDTO cancelLeave(Long requestId, Long userId) {
+        LeaveRequest request = leaveRequestRepository.findById(requestId)
+                .orElseThrow(() -> new IllegalArgumentException("Leave request not found: " + requestId));
+
+        if (!request.getUserId().equals(userId)) {
+            throw new org.springframework.security.access.AccessDeniedException("You can only cancel your own leave requests.");
+        }
+
+        if (!"PENDING".equalsIgnoreCase(request.getStatus())) {
+            throw new IllegalStateException("Only pending leave requests can be cancelled. Current status: " + request.getStatus());
+        }
+
+        request.setStatus("CANCELLED");
+        leaveRequestRepository.save(request);
+        return mapToDTO(request);
+    }
+
+    public WfhRequestDTO cancelWfh(Long requestId, Long userId) {
+        WfhRequest request = wfhRequestRepository.findById(requestId)
+                .orElseThrow(() -> new IllegalArgumentException("WFH request not found: " + requestId));
+
+        if (!request.getUserId().equals(userId)) {
+            throw new org.springframework.security.access.AccessDeniedException("You can only cancel your own WFH requests.");
+        }
+
+        if (!"PENDING".equalsIgnoreCase(request.getStatus())) {
+            throw new IllegalStateException("Only pending WFH requests can be cancelled. Current status: " + request.getStatus());
+        }
+
+        request.setStatus("CANCELLED");
+        wfhRequestRepository.save(request);
+        return mapWfhToDTO(request);
+    }
+
+    @Transactional(readOnly = true)
+    public WfhRequestDTO getWfhById(Long requestId, Long userId) {
+        WfhRequest request = wfhRequestRepository.findById(requestId)
+                .orElseThrow(() -> new IllegalArgumentException("WFH request not found: " + requestId));
+        return mapWfhToDTO(request);
+    }
+
+    @Transactional(readOnly = true)
+    public List<LeaveRequestDTO> getTeamLeaveRequests() {
+        return leaveRequestRepository.findAll().stream()
+                .map(this::mapToDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<WfhRequestDTO> getTeamWfhRequests() {
+        return wfhRequestRepository.findAll().stream()
+                .map(this::mapWfhToDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<WfhRequestDTO> getPendingWfhRequests() {
+        return wfhRequestRepository.findByStatus("PENDING").stream()
+                .map(this::mapWfhToDTO)
+                .collect(Collectors.toList());
+    }
+
+    private List<Long> getManagerOrAdminUserIds(Long excludeUserId) {
+        try {
+            if (userFacade != null) {
+                List<Long> activeIds = userFacade.getAllActiveUserIds();
+                if (activeIds != null) {
+                    return activeIds.stream().filter(id -> id != null && !id.equals(excludeUserId)).toList();
+                }
+            }
+        } catch (Exception e) {
+            // Fallback
+        }
+        return Collections.emptyList();
     }
 }

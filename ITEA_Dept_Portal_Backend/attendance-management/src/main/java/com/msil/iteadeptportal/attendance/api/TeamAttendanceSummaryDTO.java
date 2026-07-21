@@ -5,9 +5,15 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-@Data @NoArgsConstructor @AllArgsConstructor @Builder
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class TeamAttendanceSummaryDTO {
-    private String employeeId;
-    private String employeeName;
-    private String status;
+    private long totalPresent;
+    private long totalAbsent;
+    private long totalLeave;
+    private long totalWfh;
+    private long totalCheckedIn;
+    private long totalCheckedOut;
 }

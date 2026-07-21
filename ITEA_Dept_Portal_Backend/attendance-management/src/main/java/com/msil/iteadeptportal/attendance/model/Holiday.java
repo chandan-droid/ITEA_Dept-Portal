@@ -24,6 +24,12 @@ public class Holiday {
     @Column(name = "holiday_name", nullable = false)
     private String holidayName;
 
+    @Column(name = "holiday_type", nullable = false)
+    private String holidayType;
+
+    @Column(name = "description", columnDefinition = "TEXT")
+    private String description;
+
     /** false = mandatory, true = optional */
     @Column(name = "is_optional", nullable = false)
     @Builder.Default

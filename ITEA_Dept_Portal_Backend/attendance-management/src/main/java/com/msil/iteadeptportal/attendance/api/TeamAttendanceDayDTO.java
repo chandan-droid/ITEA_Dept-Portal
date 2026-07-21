@@ -7,8 +7,11 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDate;
 import java.util.List;
 
-@Data @NoArgsConstructor @AllArgsConstructor @Builder
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class TeamAttendanceDayDTO {
     private LocalDate date;
-    private List<TeamAttendanceSummaryDTO> teamAttendance;
+    private List<TeamMemberAttendanceDTO> teamAttendance;
 }

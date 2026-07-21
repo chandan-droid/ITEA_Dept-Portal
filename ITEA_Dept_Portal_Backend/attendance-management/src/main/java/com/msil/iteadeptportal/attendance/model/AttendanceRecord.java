@@ -38,11 +38,20 @@ public class AttendanceRecord {
     @Column(name = "check_in_location")
     private String checkInLocation;
 
+    @Column(name = "check_out_location")
+    private String checkOutLocation;
+
+    @Column(name = "check_out_ip")
+    private String checkOutIp;
+
+    @Column(name = "remarks", columnDefinition = "TEXT")
+    private String remarks;
+
     @Column(name = "working_minutes")
     @Builder.Default
     private Integer workingMinutes = 0;
 
-    /** PRESENT, HALF_DAY, ABSENT, LEAVE, WFH */
+    /** PRESENT, HALF_DAY, ABSENT, LEAVE, WFH, HOLIDAY, WEEKEND */
     @Column(name = "attendance_status", nullable = false)
     private String attendanceStatus;
 
