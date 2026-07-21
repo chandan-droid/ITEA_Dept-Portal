@@ -4,17 +4,16 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { projectApi } from '../../core/api/projectApi';
 import { employeeApi } from '../../core/api/employeeApi';
 import { useAuth } from '../authentication/AuthProvider';
-import { Card } from '../../shared/components/Card';
-import { LoadingSpinner } from '../../shared/components/LoadingSpinner';
 import { 
-  ArrowLeft, Calendar, User, AlignLeft, Target, 
+  ArrowLeft, ArrowRight, Calendar, User, AlignLeft, Target, 
   Settings, Users, Milestone, FileText, MessageSquare, 
   History, Plus, Trash2, CheckCircle2, Download, Upload,
-  AlertCircle, ShieldAlert, Award, X, Edit3, Loader2, Save
+  AlertCircle, ShieldAlert, Award, X, Edit3, Loader2, Save, BarChart2, Circle, CheckCircle, Clock, Mail, Shield, Send
 } from 'lucide-react';
 
-export const ProjectDetailsScreen = () => {
-  const { projectId } = useParams();
+export const ProjectDetailsScreen = ({ embeddedProjectId, onBackToList }) => {
+  const params = useParams();
+  const projectId = embeddedProjectId || params.projectId;
   const navigate = useNavigate();
   const { hasPermission, user: loggedInUser } = useAuth();
 
@@ -36,11 +35,10 @@ export const ProjectDetailsScreen = () => {
   const [actionError, setActionError] = useState(null);
   const [actionSuccess, setActionSuccess] = useState(null);
 
-  // Modals / Dropdowns States
+  // Modals States
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
   const [isAddMilestoneOpen, setIsAddMilestoneOpen] = useState(false);
-  const [isChangeManagerOpen, setIsChangeManagerOpen] = useState(false);
 
   // Form Fields
   const [editName, setEditName] = useState('');
@@ -71,11 +69,11 @@ export const ProjectDetailsScreen = () => {
   const canDeleteDoc = hasPermission('PROJECT_DOCUMENT_DELETE');
   const canCreateComment = hasPermission('PROJECT_COMMENT_CREATE');
   const canDeleteComment = hasPermission('PROJECT_COMMENT_DELETE');
-  const canViewReport = hasPermission('PROJECT_REPORT_VIEW');
   const canExportReport = hasPermission('PROJECT_REPORT_EXPORT');
 
-  // Load project workspace details
+  // Fetch Details
   const fetchDetails = async () => {
+    if (!projectId) return;
     setLoading(true);
     setError(null);
     try {
@@ -86,7 +84,6 @@ export const ProjectDetailsScreen = () => {
       setStats(data.statistics);
       setActivities(data.recentActivities || []);
 
-      // Populate edit form values
       setEditName(data.project.projectName);
       setEditDesc(data.project.description || '');
       setEditObj(data.project.objectives || '');
@@ -101,32 +98,22 @@ export const ProjectDetailsScreen = () => {
   };
 
   useEffect(() => {
-    if (projectId) {
-      fetchDetails();
-    }
+    fetchDetails();
   }, [projectId]);
 
-  // Load files, comments, and activities dynamically based on active tab selection
   useEffect(() => {
     if (!projectId) return;
-
-    if (activeTab === 'documents') {
-      loadDocuments();
-    } else if (activeTab === 'comments') {
-      loadComments();
-    } else if (activeTab === 'activities') {
-      loadActivities();
-    }
+    if (activeTab === 'documents') loadDocuments();
+    else if (activeTab === 'comments') loadComments();
+    else if (activeTab === 'activities') loadActivities();
   }, [activeTab, projectId]);
 
-  // ─── DOCUMENTS HANDLERS ──────────────────────────────────────────────────
+  // Handlers
   const loadDocuments = async () => {
     try {
       const docs = await projectApi.getDocuments(projectId);
       setDocuments(docs);
-    } catch (err) {
-      console.error(err);
-    }
+    } catch (err) { console.error(err); }
   };
 
   const handleUploadDoc = async (e) => {
@@ -137,7 +124,7 @@ export const ProjectDetailsScreen = () => {
     try {
       await projectApi.uploadDocument(projectId, uploadFile);
       setUploadFile(null);
-      document.getElementById('fileInput').value = '';
+      if (document.getElementById('fileInput')) document.getElementById('fileInput').value = '';
       await loadDocuments();
       await refreshStats();
       setActionSuccess('File uploaded successfully.');
@@ -149,36 +136,28 @@ export const ProjectDetailsScreen = () => {
   };
 
   const handleDeleteDoc = async (docId) => {
-    if (!window.confirm('Are you sure you want to delete this document?')) return;
+    if (!window.confirm('Delete document?')) return;
     try {
       await projectApi.deleteDocument(projectId, docId);
       await loadDocuments();
       await refreshStats();
-    } catch (err) {
-      alert(err.message);
-    }
+    } catch (err) { alert(err.message); }
   };
 
   const handleDownloadDoc = (docId) => {
-    // Open a direct link/iframe download targeting the API
     const token = localStorage.getItem('access_token');
     const downloadUrl = `${import.meta.env.VITE_API_BASE_URL || ''}/api/projects/${projectId}/documents/${docId}?access_token=${token}`;
-    
-    // We trigger download by creating anchor tag
     const link = document.createElement('a');
     link.href = downloadUrl;
     link.target = '_blank';
     link.click();
   };
 
-  // ─── COMMENTS HANDLERS ───────────────────────────────────────────────────
   const loadComments = async () => {
     try {
       const data = await projectApi.getComments(projectId);
       setComments(data);
-    } catch (err) {
-      console.error(err);
-    }
+    } catch (err) { console.error(err); }
   };
 
   const handleAddComment = async (e) => {
@@ -201,24 +180,20 @@ export const ProjectDetailsScreen = () => {
     try {
       await projectApi.deleteComment(projectId, commentId);
       await loadComments();
-    } catch (err) {
-      alert(err.message);
-    }
+    } catch (err) { alert(err.message); }
   };
 
-  // ─── MILESTONES HANDLERS ─────────────────────────────────────────────────
   const handleCreateMilestone = async (e) => {
     e.preventDefault();
     if (!newMsName.trim()) return;
     setActionLoading(true);
     setActionError(null);
     try {
-      const payload = {
+      await projectApi.createMilestone(projectId, {
         milestoneName: newMsName.trim(),
         description: newMsDesc.trim() || null,
         targetDate: newMsTarget || null
-      };
-      await projectApi.createMilestone(projectId, payload);
+      });
       setNewMsName('');
       setNewMsDesc('');
       setNewMsTarget('');
@@ -226,11 +201,8 @@ export const ProjectDetailsScreen = () => {
       await fetchMilestones();
       await refreshStats();
       setActionSuccess('Milestone added successfully.');
-    } catch (err) {
-      setActionError(err.message);
-    } finally {
-      setActionLoading(false);
-    }
+    } catch (err) { setActionError(err.message); }
+    finally { setActionLoading(false); }
   };
 
   const handleCompleteMilestone = async (msId) => {
@@ -238,39 +210,30 @@ export const ProjectDetailsScreen = () => {
       await projectApi.completeMilestone(projectId, msId);
       await fetchMilestones();
       await refreshStats();
-    } catch (err) {
-      alert(err.message);
-    }
+    } catch (err) { alert(err.message); }
   };
 
   const handleDeleteMilestone = async (msId) => {
-    if (!window.confirm('Delete this milestone?')) return;
+    if (!window.confirm('Delete milestone?')) return;
     try {
       await projectApi.deleteMilestone(projectId, msId);
       await fetchMilestones();
       await refreshStats();
-    } catch (err) {
-      alert(err.message);
-    }
+    } catch (err) { alert(err.message); }
   };
 
   const fetchMilestones = async () => {
     try {
       const data = await projectApi.getMilestones(projectId);
       setMilestones(data);
-    } catch (err) {
-      console.error(err);
-    }
+    } catch (err) { console.error(err); }
   };
 
-  // ─── MEMBERS HANDLERS ────────────────────────────────────────────────────
   const loadEmployeesList = async () => {
     try {
       const response = await employeeApi.getAll({ page: 0, size: 200, status: 'ACTIVE' });
       setEmployees(response.content || []);
-    } catch (err) {
-      console.error(err);
-    }
+    } catch (err) { console.error(err); }
   };
 
   const handleAddMember = async (e) => {
@@ -279,84 +242,56 @@ export const ProjectDetailsScreen = () => {
     setActionLoading(true);
     setActionError(null);
     try {
-      const payload = [{
-        userId: parseInt(newMemberId, 10),
-        projectRole: newMemberRole
-      }];
-      await projectApi.addMembers(projectId, payload);
+      await projectApi.addMembers(projectId, [{ userId: parseInt(newMemberId, 10), projectRole: newMemberRole }]);
       setNewMemberId('');
       setIsAddMemberOpen(false);
       await refreshMembers();
       await refreshStats();
-      setActionSuccess('Project member added successfully.');
-    } catch (err) {
-      setActionError(err.message);
-    } finally {
-      setActionLoading(false);
-    }
+      setActionSuccess('Member added successfully.');
+    } catch (err) { setActionError(err.message); }
+    finally { setActionLoading(false); }
   };
 
   const handleRemoveMember = async (memId) => {
-    if (!window.confirm('Are you sure you want to remove this member?')) return;
+    if (!window.confirm('Remove member?')) return;
     try {
       await projectApi.removeMember(projectId, memId);
       await refreshMembers();
       await refreshStats();
-    } catch (err) {
-      alert(err.message);
-    }
-  };
-
-  const handleRoleChange = async (memId, newRole) => {
-    try {
-      await projectApi.updateMemberRole(projectId, memId, newRole);
-      await refreshMembers();
-    } catch (err) {
-      alert(err.message);
-    }
+    } catch (err) { alert(err.message); }
   };
 
   const refreshMembers = async () => {
     try {
       const data = await projectApi.getMembers(projectId);
       setMembers(data);
-    } catch (err) {
-      console.error(err);
-    }
+    } catch (err) { console.error(err); }
   };
 
-  // ─── ACTIVITIES HANDLERS ─────────────────────────────────────────────────
   const loadActivities = async () => {
     try {
       const logs = await projectApi.getActivities(projectId);
       setActivities(logs);
-    } catch (err) {
-      console.error(err);
-    }
+    } catch (err) { console.error(err); }
   };
 
-  // ─── PROJECT STATE HANDLERS ──────────────────────────────────────────────
   const handleUpdateProject = async (e) => {
     e.preventDefault();
     setActionLoading(true);
     setActionError(null);
     try {
-      const payload = {
+      await projectApi.update(projectId, {
         projectName: editName.trim(),
         description: editDesc.trim() || null,
         objectives: editObj.trim() || null,
         plannedStartDate: editStart || null,
         plannedEndDate: editEnd || null
-      };
-      await projectApi.update(projectId, payload);
+      });
       setIsEditOpen(false);
       await fetchDetails();
-      setActionSuccess('Project details updated successfully.');
-    } catch (err) {
-      setActionError(err.message);
-    } finally {
-      setActionLoading(false);
-    }
+      setActionSuccess('Project updated successfully.');
+    } catch (err) { setActionError(err.message); }
+    finally { setActionLoading(false); }
   };
 
   const handleStatusChange = async (status) => {
@@ -365,53 +300,17 @@ export const ProjectDetailsScreen = () => {
       await projectApi.changeStatus(projectId, status);
       await fetchDetails();
       setActionSuccess('Project status changed to ' + status);
-    } catch (err) {
-      alert(err.message);
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleArchive = async () => {
-    if (!window.confirm('Only completed projects can be archived. Archive project now?')) return;
-    setActionLoading(true);
-    try {
-      await projectApi.archive(projectId);
-      await fetchDetails();
-      setActionSuccess('Project archived and marked as read-only.');
-    } catch (err) {
-      alert(err.message);
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleAssignManagerSubmit = async (e) => {
-    e.preventDefault();
-    if (!newMemberId) return;
-    setActionLoading(true);
-    setActionError(null);
-    try {
-      await projectApi.assignManager(projectId, parseInt(newMemberId, 10));
-      setIsChangeManagerOpen(false);
-      setNewMemberId('');
-      await fetchDetails();
-      setActionSuccess('Project manager reassigned successfully.');
-    } catch (err) {
-      setActionError(err.message);
-    } finally {
-      setActionLoading(false);
-    }
+    } catch (err) { alert(err.message); }
+    finally { setActionLoading(false); }
   };
 
   const handleDeleteProject = async () => {
-    if (!window.confirm('WARNING: This will permanently delete the project and all related documents, milestones, and comment threads. Proceed?')) return;
+    if (!window.confirm('WARNING: Are you sure you want to delete this project workspace?')) return;
     try {
       await projectApi.delete(projectId);
-      navigate('/projects');
-    } catch (err) {
-      alert(err.message);
-    }
+      if (onBackToList) onBackToList();
+      else navigate('/projects');
+    } catch (err) { alert(err.message); }
   };
 
   const handleExportReport = async (format) => {
@@ -419,45 +318,19 @@ export const ProjectDetailsScreen = () => {
       const content = await projectApi.exportReport(projectId, format);
       const mimeType = format === 'pdf' ? 'application/pdf' : 'text/csv';
       const extension = format === 'pdf' ? 'pdf' : 'csv';
-
-      // Create a Blob from the raw byte content
       const blob = new Blob([content], { type: mimeType });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
       link.download = `project-${projectDetails.projectCode}-report.${extension}`;
       link.click();
-    } catch (err) {
-      alert('Export failed: ' + err.message);
-    }
+    } catch (err) { alert('Export failed: ' + err.message); }
   };
 
-  // Helper utils
   const refreshStats = async () => {
     try {
       const statistics = await projectApi.getStatistics(projectId);
       setStats(statistics);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const getStatusColor = (status) => {
-    switch (status?.toUpperCase()) {
-      case 'ACTIVE':
-        return 'bg-green-100 text-green-800 border-green-200';
-      case 'PLANNING':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'ON_HOLD':
-        return 'bg-amber-100 text-amber-800 border-amber-200';
-      case 'COMPLETED':
-        return 'bg-teal-100 text-teal-800 border-teal-200';
-      case 'CANCELLED':
-        return 'bg-rose-100 text-rose-800 border-rose-200';
-      case 'ARCHIVED':
-        return 'bg-purple-100 text-purple-800 border-purple-200';
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
+    } catch (err) { console.error(err); }
   };
 
   const formatBytes = (bytes) => {
@@ -468,761 +341,574 @@ export const ProjectDetailsScreen = () => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
+  if (!projectId) {
+    return (
+      <div className="h-full min-h-[500px] flex flex-col items-center justify-center p-8 text-center bg-white rounded-3xl border border-slate-200/80 shadow-2xs">
+        <div className="w-16 h-16 rounded-3xl bg-blue-50 text-blue-600 flex items-center justify-center mb-4">
+          <BarChart2 size={32} />
+        </div>
+        <h3 className="text-lg font-black text-slate-900">Select a Project Workspace</h3>
+        <p className="text-xs text-slate-400 mt-1 max-w-sm">
+          Choose any project from the left panel to inspect milestones, core team directory, shared files, and discussion activity.
+        </p>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
-      <div className="py-24 flex justify-center">
-        <LoadingSpinner size="lg" />
+      <div className="py-32 flex flex-col items-center justify-center gap-3 bg-white rounded-3xl border border-slate-200/80 shadow-2xs min-h-[500px]">
+        <Loader2 size={36} className="animate-spin text-blue-600" />
+        <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Loading Workspace...</span>
       </div>
     );
   }
 
   if (error || !projectDetails) {
     return (
-      <div className="space-y-4 max-w-md mx-auto py-10 select-none animate-fade-in">
-        <div className="bg-red-50 text-red-800 border border-red-200 p-4 rounded-large text-center">
-          <p className="font-semibold text-sm">{error || 'Project workspace details not found'}</p>
+      <div className="space-y-4 max-w-md mx-auto py-16 text-center">
+        <div className="bg-rose-50 text-rose-800 border border-rose-200 p-5 rounded-2xl">
+          <p className="font-bold text-sm">{error || 'Project workspace details not found'}</p>
         </div>
-        <button onClick={() => navigate('/projects')} className="md-button-secondary w-full cursor-pointer">
-          <ArrowLeft size={16} /> Back to Projects Directory
-        </button>
+        {onBackToList && (
+          <button onClick={onBackToList} className="py-2.5 px-4 bg-slate-900 text-white rounded-xl font-bold text-xs">
+            Back to Project Directory
+          </button>
+        )}
       </div>
     );
   }
 
   const isArchived = projectDetails.archived || 'ARCHIVED' === projectDetails.status;
-  const isManagerOrAdmin = projectDetails.ownerId === loggedInUser.userId || canUpdate;
+  const isManagerOrAdmin = projectDetails.ownerId === loggedInUser?.userId || canUpdate;
+  const progressPct = stats?.progress ?? 0;
 
   return (
-    <div className="space-y-6 select-none animate-fade-in">
+    <div className="space-y-5 select-none animate-fade-in font-sans">
       
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate('/projects')}
-            className="p-2 hover:bg-gray-100 rounded-large text-gray-500 hover:text-gray-800 transition-colors cursor-pointer"
-          >
-            <ArrowLeft size={20} />
-          </button>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-xs font-bold text-gray-400 tracking-wider">
-                {projectDetails.projectCode}
-              </span>
-              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wide border ${getStatusColor(projectDetails.status)}`}>
-                {projectDetails.status}
-              </span>
+      {/* ─── HERO WORKSPACE CARD WITH EDIT & DELETE AT TOP ─────────────────── */}
+      <div className="bg-white rounded-3xl border border-slate-200/80 shadow-2xs p-5 lg:p-6 space-y-5">
+        
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-start gap-3.5">
+            {onBackToList && (
+              <button
+                onClick={onBackToList}
+                className="lg:hidden p-2 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
+                title="Back to list"
+              >
+                <ArrowLeft size={16} />
+              </button>
+            )}
+
+            <div className="w-11 h-11 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold shrink-0 shadow-2xs">
+              <BarChart2 size={22} />
             </div>
-            <h1 className="text-2xl font-bold text-secondary-dark tracking-tight mt-0.5">
-              {projectDetails.projectName}
-            </h1>
+
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                  {projectDetails.projectName}
+                </h2>
+                <span className="bg-blue-600 text-white text-[9px] font-extrabold tracking-wider px-2.5 py-0.5 rounded-full uppercase shadow-2xs">
+                  {(projectDetails.status || 'PLANNING').replace('_', ' ')}
+                </span>
+              </div>
+              <p className="text-[11px] font-mono font-bold text-slate-400">
+                CODE: {projectDetails.projectCode} • OWNER: {projectDetails.ownerName || 'Department Admin'}
+              </p>
+            </div>
+          </div>
+
+          {/* Right Header Section: EDIT & DELETE Options at Top + Progress Ring */}
+          <div className="flex items-center gap-3 shrink-0 flex-wrap">
+            {isManagerOrAdmin && !isArchived && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setIsEditOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-xs font-extrabold border border-blue-200/60 transition-all cursor-pointer shadow-2xs active:scale-95"
+                  title="Edit Project Details"
+                >
+                  <Edit3 size={14} />
+                  <span>Edit</span>
+                </button>
+                {canDelete && (
+                  <button
+                    onClick={handleDeleteProject}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-extrabold border border-rose-200/60 transition-all cursor-pointer shadow-2xs active:scale-95"
+                    title="Delete Project Workspace"
+                  >
+                    <Trash2 size={14} />
+                    <span>Delete</span>
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Progress Gauge */}
+            <div className="flex items-center gap-3 bg-slate-50 p-2.5 px-3 rounded-2xl border border-slate-100">
+              <div className="text-right">
+                <div className="text-[9px] font-extrabold uppercase tracking-widest text-slate-400">Progress</div>
+                <div className="text-lg font-black text-blue-600 font-mono">{progressPct}%</div>
+              </div>
+
+              <div className="relative w-9 h-9 flex items-center justify-center shrink-0">
+                <svg className="w-9 h-9 transform -rotate-90">
+                  <circle cx="18" cy="18" r="13" stroke="currentColor" strokeWidth="3" className="text-slate-200" fill="transparent" />
+                  <circle
+                    cx="18"
+                    cy="18"
+                    r="13"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    className="text-blue-600 transition-all duration-700"
+                    fill="transparent"
+                    strokeDasharray={81}
+                    strokeDashoffset={81 - (81 * progressPct) / 100}
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Exporter Buttons */}
-        {canExportReport && (
-          <div className="flex gap-2">
-            <button
-              onClick={() => handleExportReport('excel')}
-              className="md-button-secondary text-xs py-2 px-3 flex items-center gap-1 cursor-pointer"
-            >
-              <Download size={14} /> Excel
-            </button>
-            <button
-              onClick={() => handleExportReport('pdf')}
-              className="md-button-secondary text-xs py-2 px-3 flex items-center gap-1 cursor-pointer"
-            >
-              <Download size={14} /> PDF Summary
-            </button>
-          </div>
-        )}
+        {/* Navigation Tabs Bar */}
+        <div className="border-t border-slate-100 pt-2 flex overflow-x-auto gap-1 scrollbar-none">
+          {[
+            { id: 'overview', label: 'OVERVIEW', icon: AlignLeft },
+            { id: 'milestones', label: 'TIMELINE', icon: Milestone },
+            { id: 'members', label: 'MEMBERS', icon: Users },
+            { id: 'documents', label: 'DOCUMENTS', icon: FileText },
+            { id: 'comments', label: 'COMMENTS', icon: MessageSquare },
+            { id: 'activities', label: 'ACTIVITIES', icon: History }
+          ].map(tab => {
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => { setActiveTab(tab.id); setActionError(null); setActionSuccess(null); }}
+                className={`px-4 py-2 font-extrabold text-[11px] tracking-wider transition-all border-b-2 cursor-pointer whitespace-nowrap ${
+                  isActive
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-slate-400 hover:text-slate-700'
+                }`}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+
       </div>
 
       {/* Alerts */}
       {actionSuccess && (
-        <div className="p-3 bg-green-50 text-green-800 border border-green-150 rounded-xl text-xs font-semibold flex items-center justify-between">
+        <div className="p-3 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-2xl text-xs font-bold flex items-center justify-between">
           <span>{actionSuccess}</span>
-          <button onClick={() => setActionSuccess(null)} className="text-green-500 hover:text-green-700 cursor-pointer">
-            <X size={14} />
-          </button>
+          <button onClick={() => setActionSuccess(null)} className="text-emerald-600 hover:text-emerald-800 cursor-pointer"><X size={14} /></button>
         </div>
       )}
       {actionError && (
-        <div className="p-3 bg-red-50 text-red-800 border border-red-150 rounded-xl text-xs font-semibold flex items-center justify-between">
+        <div className="p-3 bg-rose-50 text-rose-800 border border-rose-200 rounded-2xl text-xs font-bold flex items-center justify-between">
           <span>{actionError}</span>
-          <button onClick={() => setActionError(null)} className="text-red-500 hover:text-red-700 cursor-pointer">
-            <X size={14} />
-          </button>
+          <button onClick={() => setActionError(null)} className="text-rose-600 hover:text-rose-800 cursor-pointer"><X size={14} /></button>
         </div>
       )}
 
-      {/* Tab Navigation */}
-      <div className="bg-white border-b border-gray-100 rounded-t-large flex overflow-x-auto">
-        {[
-          { id: 'overview', label: 'Overview', icon: AlignLeft },
-          { id: 'members', label: 'Members', icon: Users },
-          { id: 'milestones', label: 'Milestones', icon: Milestone },
-          { id: 'documents', label: 'Documents', icon: FileText },
-          { id: 'comments', label: 'Comments', icon: MessageSquare },
-          { id: 'activities', label: 'Activity Trail', icon: History }
-        ].map((tab) => {
-          const TabIcon = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => { setActiveTab(tab.id); setActionError(null); setActionSuccess(null); }}
-              className={`flex items-center gap-2 px-6 py-4 border-b-2 font-bold text-sm transition-all duration-150 shrink-0 cursor-pointer ${
-                isActive
-                  ? 'border-accent text-accent'
-                  : 'border-transparent text-gray-500 hover:text-gray-800 hover:bg-gray-50/50'
-              }`}
-            >
-              <TabIcon size={16} />
-              {tab.label}
-            </button>
-          );
-        })}
-      </div>
+      {/* ─── TAB 1: OVERVIEW ───────────────────────────────────────────────── */}
+      {activeTab === 'overview' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          <div className="lg:col-span-2 space-y-5">
+            <div className="bg-white rounded-3xl border border-slate-200/80 shadow-2xs p-5 space-y-3">
+              <h3 className="font-extrabold text-sm text-slate-900">Project Summary</h3>
+              <p className="text-xs text-slate-600 font-medium leading-relaxed">
+                {projectDetails.description || projectDetails.objectives || 'No project summary or description provided yet.'}
+              </p>
 
-      {/* Workspace Area */}
-      <div className="min-h-[400px]">
-
-        {/* ─── TAB 1: OVERVIEW ───────────────────────────────────────────────── */}
-        {activeTab === 'overview' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Details Panel */}
-            <div className="lg:col-span-2 space-y-6">
-              <Card title="Project Summary">
-                <div className="space-y-4 text-sm mt-3">
-                  <div>
-                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Objectives</h4>
-                    <p className="text-secondary-dark font-medium leading-relaxed bg-gray-50/60 p-3.5 rounded-xl border border-gray-100">
-                      {projectDetails.objectives || 'No objectives stated.'}
-                    </p>
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Description</h4>
-                    <p className="text-secondary-dark font-medium leading-relaxed bg-gray-50/60 p-3.5 rounded-xl border border-gray-100">
-                      {projectDetails.description || 'No description listed.'}
-                    </p>
-                  </div>
+              <div className="border-t border-slate-100 pt-3 grid grid-cols-2 gap-4 text-left">
+                <div>
+                  <div className="text-[9px] font-extrabold uppercase tracking-widest text-slate-400">START DATE</div>
+                  <div className="text-xs font-extrabold text-slate-800 mt-0.5 font-mono">{projectDetails.plannedStartDate || 'Not Specified'}</div>
                 </div>
-              </Card>
-
-              {/* Schedule and Managers Card */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card title="Workspace Settings">
-                  <div className="space-y-3.5 mt-2">
-                    <div className="flex justify-between items-center text-sm border-b border-gray-50 pb-2">
-                      <span className="font-semibold text-gray-400 flex items-center gap-1.5"><Calendar size={14} /> Planned Start</span>
-                      <span className="font-bold text-secondary-dark">{projectDetails.plannedStartDate || '-'}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm border-b border-gray-50 pb-2">
-                      <span className="font-semibold text-gray-400 flex items-center gap-1.5"><Calendar size={14} /> Planned End</span>
-                      <span className="font-bold text-secondary-dark">{projectDetails.plannedEndDate || '-'}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm border-b border-gray-50 pb-2">
-                      <span className="font-semibold text-gray-400 flex items-center gap-1.5"><Calendar size={14} /> Actual Start</span>
-                      <span className="font-bold text-secondary-dark">{projectDetails.actualStartDate || '-'}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm pb-1">
-                      <span className="font-semibold text-gray-400 flex items-center gap-1.5"><Calendar size={14} /> Actual End</span>
-                      <span className="font-bold text-secondary-dark">{projectDetails.actualEndDate || '-'}</span>
-                    </div>
-                  </div>
-                </Card>
-
-                <Card title="Workspace Managers">
-                  <div className="space-y-4 mt-2 text-sm">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center border border-primary/20">
-                        PM
-                      </div>
-                      <div>
-                        <p className="text-xs font-semibold text-gray-400">Project Manager</p>
-                        <h4 className="font-bold text-secondary-dark">{projectDetails.ownerName}</h4>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-3 border-t border-gray-50 pt-3">
-                      <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-700 font-bold flex items-center justify-center border border-slate-200">
-                        CR
-                      </div>
-                      <div>
-                        <p className="text-xs font-semibold text-gray-400">Created By</p>
-                        <h4 className="font-bold text-secondary-dark">{projectDetails.creatorName}</h4>
-                      </div>
-                    </div>
-                  </div>
-                </Card>
+                <div>
+                  <div className="text-[9px] font-extrabold uppercase tracking-widest text-slate-400">TARGET END</div>
+                  <div className="text-xs font-extrabold text-slate-800 mt-0.5 font-mono">{projectDetails.plannedEndDate || 'Not Specified'}</div>
+                </div>
               </div>
             </div>
 
-            {/* Right statistics / action column */}
-            <div className="space-y-6">
-              {/* Progress Card */}
-              {stats && (
-                <Card title="Activity Progress">
-                  <div className="space-y-4 mt-2">
-                    {/* Circle Progress bar or linear */}
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider">
-                        <span className="text-gray-400">Completion</span>
-                        <span className="text-secondary-dark text-sm">{stats.progress}%</span>
-                      </div>
-                      <div className="w-full h-2.5 bg-gray-100 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-accent transition-all duration-500"
-                          style={{ width: `${stats.progress}%` }}
-                        />
-                      </div>
-                    </div>
+            <div className="bg-white rounded-3xl border border-slate-200/80 shadow-2xs p-5 space-y-3">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                <h3 className="font-extrabold text-sm text-slate-900">Key Milestones</h3>
+                <button onClick={() => setActiveTab('milestones')} className="text-xs font-bold text-blue-600 hover:underline cursor-pointer">View All</button>
+              </div>
 
-                    <div className="grid grid-cols-2 gap-4 border-t border-gray-50 pt-4 text-center">
-                      <div className="p-3 bg-gray-50/50 rounded-xl border border-gray-100">
-                        <h4 className="text-xl font-extrabold text-secondary-dark">{stats.members}</h4>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mt-0.5">Active Members</p>
-                      </div>
-                      <div className="p-3 bg-gray-50/50 rounded-xl border border-gray-100">
-                        <h4 className="text-xl font-extrabold text-secondary-dark">
-                          {stats.completedMilestones}/{stats.milestones}
-                        </h4>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mt-0.5">Milestones</p>
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-              )}
-
-              {/* Manager Operations Panel */}
-              {isManagerOrAdmin && !isArchived && (
-                <Card title="Workspace Operations">
-                  <div className="grid grid-cols-1 gap-2.5 mt-2">
-                    <button
-                      onClick={() => setIsEditOpen(true)}
-                      className="md-button-secondary w-full py-2.5 text-xs flex justify-center items-center gap-1 cursor-pointer"
-                    >
-                      <Edit3 size={14} /> Update Project Details
-                    </button>
-                    
-                    {canAssignManager && (
-                      <button
-                        onClick={() => { setIsChangeManagerOpen(true); loadEmployeesList(); }}
-                        className="md-button-secondary w-full py-2.5 text-xs flex justify-center items-center gap-1 cursor-pointer"
-                      >
-                        <User size={14} /> Reassign Manager
-                      </button>
-                    )}
-
-                    {canChangeStatus && (
-                      <div className="space-y-1">
-                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
-                          Update status
-                        </label>
-                        <select
-                          value={projectDetails.status}
-                          onChange={(e) => handleStatusChange(e.target.value)}
-                          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-secondary-dark focus:outline-none focus:border-accent"
-                          disabled={actionLoading}
-                        >
-                          <option value="PLANNING">Planning</option>
-                          <option value="ACTIVE">Active</option>
-                          <option value="ON_HOLD">On Hold</option>
-                          <option value="COMPLETED">Completed</option>
-                          <option value="CANCELLED">Cancelled</option>
-                        </select>
-                      </div>
-                    )}
-
-                    {canArchive && 'COMPLETED' === projectDetails.status && (
-                      <button
-                        onClick={handleArchive}
-                        className="w-full py-2.5 rounded-xl border border-purple-200 bg-purple-50 text-purple-700 font-semibold text-xs flex items-center justify-center gap-1 hover:bg-purple-100 transition-colors cursor-pointer"
-                      >
-                        <Award size={14} /> Archive Project (Read-Only)
-                      </button>
-                    )}
-
-                    {canDelete && (
-                      <button
-                        onClick={handleDeleteProject}
-                        className="w-full py-2.5 rounded-xl border border-red-200 bg-red-50 text-red-650 font-semibold text-xs flex items-center justify-center gap-1 hover:bg-red-100 transition-colors cursor-pointer"
-                      >
-                        <Trash2 size={14} /> Delete Project Workspace
-                      </button>
-                    )}
-                  </div>
-                </Card>
-              )}
-
-              {/* Archived Status read-only block */}
-              {isArchived && (
-                <div className="p-4 bg-purple-50 border border-purple-150 rounded-large text-center flex flex-col items-center gap-2 shadow-sm animate-pulse-slow">
-                  <ShieldAlert size={32} className="text-purple-700" />
-                  <div>
-                    <h3 className="font-bold text-purple-800 text-sm">Archived Project</h3>
-                    <p className="text-[11px] text-purple-600 mt-0.5">
-                      This workspace is locked and read-only. No further comments, documents, or status updates can be made.
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ─── TAB 2: MEMBERS ────────────────────────────────────────────────── */}
-        {activeTab === 'members' && (
-          <Card
-            title="Project Team Directory"
-            actions={
-              canManageMembers && !isArchived && (
-                <button
-                  onClick={() => { setIsAddMemberOpen(true); loadEmployeesList(); }}
-                  className="md-button-primary py-1.5 px-3 text-xs flex items-center gap-1 cursor-pointer"
-                >
-                  <Plus size={14} /> Add Member
-                </button>
-              )
-            }
-          >
-            <div className="overflow-x-auto -mx-6 mt-2">
-              <table className="w-full text-left border-collapse text-sm">
-                <thead>
-                  <tr className="border-b border-gray-100 text-gray-400 text-xs font-bold uppercase tracking-wider">
-                    <th className="px-6 py-3">Member Name</th>
-                    <th className="px-6 py-3">Email Address</th>
-                    <th className="px-6 py-3">Project Role</th>
-                    <th className="px-6 py-3">Joined Date</th>
-                    {canManageMembers && !isArchived && <th className="px-6 py-3 text-right">Actions</th>}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {members.map((member) => (
-                    <tr key={member.projectMemberId} className="hover:bg-gray-50/50 transition-colors">
-                      <td className="px-6 py-4 font-semibold text-secondary-dark">{member.displayName}</td>
-                      <td className="px-6 py-4 text-gray-500">{member.email || '-'}</td>
-                      <td className="px-6 py-4 font-medium">
-                        {canManageMembers && !isArchived && member.userId !== projectDetails.ownerId ? (
-                          <select
-                            value={member.projectRole}
-                            onChange={(e) => handleRoleChange(member.projectMemberId, e.target.value)}
-                            className="bg-white border border-gray-200 rounded-lg px-2 py-1 text-xs font-semibold text-secondary-dark"
-                          >
-                            <option value="TEAM_MEMBER">Team Member</option>
-                            <option value="DEVELOPER">Developer</option>
-                            <option value="QA">QA Tester</option>
-                            <option value="TESTER">Tester</option>
-                            <option value="DESIGNER">Designer</option>
-                          </select>
-                        ) : (
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                            member.projectRole === 'MANAGER' 
-                              ? 'bg-amber-100 text-amber-800' 
-                              : 'bg-slate-100 text-slate-700'
-                          }`}>
-                            {member.projectRole}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 text-xs text-gray-400 font-medium">
-                        {member.joinedAt ? member.joinedAt.split('T')[0] : '-'}
-                      </td>
-                      {canManageMembers && !isArchived && (
-                        <td className="px-6 py-4 text-right">
-                          {member.userId !== projectDetails.ownerId ? (
-                            <button
-                              onClick={() => handleRemoveMember(member.projectMemberId)}
-                              className="text-red-500 hover:text-red-700 p-1 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                              title="Remove member"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          ) : (
-                            <span className="text-xs text-gray-400 font-semibold italic">Owner</span>
-                          )}
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-        )}
-
-        {/* ─── TAB 3: MILESTONES ──────────────────────────────────────────────── */}
-        {activeTab === 'milestones' && (
-          <Card
-            title="Project Milestones Schedule"
-            actions={
-              canUpdate && !isArchived && (
-                <button
-                  onClick={() => setIsAddMilestoneOpen(true)}
-                  className="md-button-primary py-1.5 px-3 text-xs flex items-center gap-1 cursor-pointer"
-                >
-                  <Plus size={14} /> Add Milestone
-                </button>
-              )
-            }
-          >
-            <div className="space-y-4 mt-2">
-              {milestones.length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-10 font-semibold">
-                  No milestones configured for this project.
-                </p>
-              ) : (
-                <div className="grid grid-cols-1 gap-4">
-                  {milestones.map((ms) => {
+              <div className="space-y-2">
+                {milestones.length === 0 ? (
+                  <div className="py-6 text-center text-xs font-bold text-slate-400">No milestones configured yet.</div>
+                ) : (
+                  milestones.slice(0, 4).map(ms => {
                     const isCompleted = ms.status === 'COMPLETED';
                     return (
-                      <div
-                        key={ms.milestoneId}
-                        className={`flex items-start md:items-center justify-between p-4 border rounded-xl shadow-sm transition-all ${
-                          isCompleted
-                            ? 'bg-teal-50/20 border-teal-150'
-                            : 'bg-white border-gray-200'
-                        }`}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className={`p-2 rounded-xl mt-0.5 md:mt-0 ${
-                            isCompleted ? 'bg-teal-100 text-teal-700' : 'bg-gray-100 text-gray-500'
-                          }`}>
-                            <Milestone size={18} />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h4 className={`font-bold text-sm ${isCompleted ? 'text-teal-800 line-through' : 'text-secondary-dark'}`}>
-                                {ms.milestoneName}
-                              </h4>
-                              <span className={`px-1.5 py-0.5 rounded text-[8px] font-extrabold uppercase ${
-                                isCompleted ? 'bg-teal-150 text-teal-800' : 'bg-gray-100 text-gray-600'
-                              }`}>
-                                {ms.status}
-                              </span>
-                            </div>
-                            {ms.description && (
-                              <p className="text-xs text-gray-400 font-semibold mt-0.5">{ms.description}</p>
-                            )}
-                            <div className="flex items-center gap-4 text-xs font-semibold text-gray-400 mt-2">
-                              <span className="flex items-center gap-1"><Calendar size={12} /> Target: {ms.targetDate || '-'}</span>
-                              {isCompleted && (
-                                <span className="flex items-center gap-1 text-teal-600"><CheckCircle2 size={12} /> Completed: {ms.completedDate || '-'}</span>
-                              )}
-                            </div>
-                          </div>
+                      <div key={ms.milestoneId} className="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50/80 border border-slate-100 text-xs">
+                        <div className="flex items-center gap-2.5">
+                          <span className={`material-symbols-outlined text-[18px] ${isCompleted ? 'text-blue-600' : 'text-slate-300'}`}>
+                            {isCompleted ? 'check_circle' : 'radio_button_unchecked'}
+                          </span>
+                          <span className={`font-bold ${isCompleted ? 'text-slate-400 line-through' : 'text-slate-800'}`}>
+                            {ms.milestoneName}
+                          </span>
                         </div>
-
-                        {canUpdate && !isArchived && (
-                          <div className="flex gap-1.5">
-                            {!isCompleted && (
-                              <button
-                                onClick={() => handleCompleteMilestone(ms.milestoneId)}
-                                className="p-1.5 bg-teal-50 text-teal-700 hover:bg-teal-100 rounded-lg transition-colors cursor-pointer"
-                                title="Mark Completed"
-                              >
-                                <CheckCircle2 size={16} />
-                              </button>
-                            )}
-                            <button
-                              onClick={() => handleDeleteMilestone(ms.milestoneId)}
-                              className="p-1.5 bg-red-50 text-red-650 hover:bg-red-100 rounded-lg transition-colors cursor-pointer"
-                              title="Delete Milestone"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </Card>
-        )}
-
-        {/* ─── TAB 4: DOCUMENTS ──────────────────────────────────────────────── */}
-        {activeTab === 'documents' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            
-            {/* Upload Area */}
-            {canUploadDoc && !isArchived && (
-              <Card title="Upload Resource Document">
-                <form onSubmit={handleUploadDoc} className="space-y-4 mt-2">
-                  <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center hover:border-accent/40 transition-colors flex flex-col items-center bg-gray-50/30">
-                    <Upload size={32} className="text-gray-300 mb-2" />
-                    <input
-                      type="file"
-                      id="fileInput"
-                      onChange={(e) => setUploadFile(e.target.files[0])}
-                      className="hidden"
-                    />
-                    <label
-                      htmlFor="fileInput"
-                      className="text-xs font-bold text-accent hover:underline cursor-pointer"
-                    >
-                      Choose file
-                    </label>
-                    <span className="text-[10px] text-gray-400 font-semibold block mt-1">
-                      {uploadFile ? uploadFile.name : 'No file selected'}
-                    </span>
-                  </div>
-                  <button
-                    type="submit"
-                    className="md-button-primary w-full text-xs py-2 cursor-pointer"
-                    disabled={!uploadFile || actionLoading}
-                  >
-                    {actionLoading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />} Upload Document
-                  </button>
-                </form>
-              </Card>
-            )}
-
-            {/* Files List */}
-            <div className={canUploadDoc && !isArchived ? 'lg:col-span-2' : 'lg:col-span-3'}>
-              <Card title="Project Resources">
-                <div className="space-y-3.5 mt-2">
-                  {documents.length === 0 ? (
-                    <p className="text-sm text-gray-400 text-center py-10 font-semibold">
-                      No documents associated with this workspace.
-                    </p>
-                  ) : (
-                    documents.map((doc) => (
-                      <div
-                        key={doc.documentId}
-                        className="flex items-center justify-between p-3.5 border border-gray-100 bg-gray-50/20 rounded-xl hover:border-accent/15 transition-all shadow-sm"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
-                            <FileText size={18} />
-                          </div>
-                          <div>
-                            <h4 className="font-bold text-sm text-secondary-dark truncate max-w-[200px] md:max-w-[400px]">
-                              {doc.documentName}
-                            </h4>
-                            <p className="text-[10px] font-semibold text-gray-400 mt-0.5">
-                              {formatBytes(doc.fileSize)} • {doc.fileType || 'binary'}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleDownloadDoc(doc.documentId)}
-                            className="p-1.5 hover:bg-gray-100 text-gray-500 hover:text-accent rounded-lg transition-colors cursor-pointer"
-                            title="Download File"
-                          >
-                            <Download size={16} />
-                          </button>
-                          {canDeleteDoc && !isArchived && (
-                            <button
-                              onClick={() => handleDeleteDoc(doc.documentId)}
-                              className="p-1.5 hover:bg-red-50 text-red-500 hover:text-red-700 rounded-lg transition-colors cursor-pointer"
-                              title="Delete File"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </Card>
-            </div>
-
-          </div>
-        )}
-
-        {/* ─── TAB 5: DISCUSSION (COMMENTS) ──────────────────────────────────── */}
-        {activeTab === 'comments' && (
-          <div className="space-y-6">
-            
-            {/* Input Comment Box */}
-            {canCreateComment && !isArchived && (
-              <Card title="Add Discussion Comment">
-                <form onSubmit={handleAddComment} className="space-y-3.5 mt-2">
-                  <textarea
-                    rows={3}
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    placeholder="Ask a question or record project progress updates..."
-                    className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium text-secondary-dark focus:outline-none focus:border-accent focus:ring-4 focus:ring-accent/10 transition-all resize-none"
-                    required
-                  />
-                  <div className="flex justify-end">
-                    <button
-                      type="submit"
-                      className="md-button-primary text-xs py-2 px-5 cursor-pointer"
-                      disabled={actionLoading || !newComment.trim()}
-                    >
-                      {actionLoading ? <Loader2 size={14} className="animate-spin" /> : <MessageSquare size={14} />} Post Comment
-                    </button>
-                  </div>
-                </form>
-              </Card>
-            )}
-
-            {/* Comments Timeline */}
-            <Card title="Discussion Feed">
-              <div className="space-y-6 mt-2">
-                {comments.length === 0 ? (
-                  <p className="text-sm text-gray-400 text-center py-10 font-semibold">
-                    No comments in this thread. Start the conversation!
-                  </p>
-                ) : (
-                  comments.map((c) => {
-                    const isAuthor = c.userId === loggedInUser.userId;
-                    const canDeleteThisComment = isAuthor || canDeleteComment || projectDetails.ownerId === loggedInUser.userId;
-                    
-                    return (
-                      <div key={c.commentId} className="flex items-start gap-3 text-sm group border-b border-gray-50 pb-4 last:border-0 last:pb-0">
-                        {/* Avatar */}
-                        <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-700 border border-slate-200 font-bold flex items-center justify-center text-xs shrink-0">
-                          {c.userId === loggedInUser.userId ? 'ME' : 'U'}
-                        </div>
-                        {/* Content */}
-                        <div className="flex-1 space-y-1">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-secondary-dark">{c.userId === loggedInUser.userId ? 'You' : 'User ' + c.userId}</span>
-                              <span className="text-[10px] text-gray-400 font-medium">
-                                {c.createdAt ? c.createdAt.replace('T', ' ').substring(0, 16) : ''}
-                              </span>
-                            </div>
-                            
-                            {canDeleteThisComment && !isArchived && (
-                              <button
-                                onClick={() => handleDeleteComment(c.commentId)}
-                                className="text-gray-400 hover:text-red-500 p-1 rounded hover:bg-gray-50 opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
-                                title="Delete comment"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            )}
-                          </div>
-                          <p className="text-gray-600 leading-relaxed font-medium bg-gray-50/30 p-3 rounded-xl border border-gray-100">{c.comment}</p>
-                        </div>
+                        <span className="font-mono font-bold text-slate-500">{ms.targetDate || '--'}</span>
                       </div>
                     );
                   })
                 )}
               </div>
-            </Card>
-
+            </div>
           </div>
-        )}
 
-        {/* ─── TAB 6: ACTIVITY TRAIL ─────────────────────────────────────────── */}
-        {activeTab === 'activities' && (
-          <Card title="Project Activity Log">
-            <div className="relative border-l border-gray-200 pl-5 ml-2.5 space-y-6 mt-4">
-              {activities.length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-10 font-semibold -ml-5">
-                  No activity history logged.
-                </p>
+          <div className="space-y-5">
+            <div className="bg-white rounded-3xl border border-slate-200/80 shadow-2xs p-5 space-y-3">
+              <h3 className="font-extrabold text-sm text-slate-900">Core Team</h3>
+              {members.length === 0 ? (
+                <div className="text-xs font-bold text-slate-400 py-1">No team members assigned yet.</div>
               ) : (
-                activities.map((act) => (
-                  <div key={act.activityId} className="relative text-sm">
-                    {/* Circle timeline connector */}
-                    <span className="absolute w-3.5 h-3.5 bg-white border-2 border-accent rounded-full -left-[27.5px] top-0.5" />
-                    
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-secondary-dark">{act.activityType}</span>
-                        <span className="text-[10px] text-gray-400 font-semibold">
-                          {act.activityTime ? act.activityTime.replace('T', ' ').substring(0, 16) : ''}
-                        </span>
+                <div className="flex items-center gap-2">
+                  <div className="flex -space-x-2 overflow-hidden p-1">
+                    {members.slice(0, 4).map((m, idx) => (
+                      <div key={m.projectMemberId || idx} className="h-9 w-9 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center ring-2 ring-white shadow-2xs" title={m.displayName}>
+                        {(m.displayName || 'U').substring(0, 2).toUpperCase()}
                       </div>
-                      <p className="text-xs font-semibold text-gray-500">
-                        Performed by: <span className="text-secondary-dark font-bold">{act.userDisplayName}</span>
-                      </p>
-                      {act.newValue && (
-                        <p className="text-xs text-gray-400 font-medium bg-gray-50/50 p-2 rounded-lg border border-gray-100 mt-1.5 w-fit max-w-full">
-                          Details: {act.newValue}
-                        </p>
-                      )}
-                    </div>
+                    ))}
                   </div>
-                ))
+                  {members.length > 4 && (
+                    <span className="bg-slate-100 text-slate-700 text-xs font-extrabold px-2.5 py-1 rounded-full border border-slate-200/60">
+                      +{members.length - 4}
+                    </span>
+                  )}
+                </div>
               )}
             </div>
-          </Card>
-        )}
 
-      </div>
-
-
-      {/* ─── MODAL 1: EDIT DETAILS ─────────────────────────────────────────── */}
-      {isEditOpen && createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 overflow-y-auto">
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => setIsEditOpen(false)} />
-          <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl p-6 z-10 border border-gray-100 flex flex-col max-h-[90vh] overflow-y-auto animate-fade-in my-auto">
-            <div className="flex items-center justify-between border-b border-gray-100 pb-3 mb-4">
-              <h2 className="text-base font-bold text-secondary-dark flex items-center gap-1.5"><Edit3 size={16} /> Update Project Details</h2>
-              <button onClick={() => setIsEditOpen(false)} className="text-gray-400 hover:text-gray-600 cursor-pointer"><X size={16} /></button>
+            <div className="bg-white rounded-3xl border border-slate-200/80 shadow-2xs p-5 space-y-3">
+              <h3 className="font-extrabold text-sm text-slate-900">Recent Activity</h3>
+              {activities.length === 0 ? (
+                <div className="py-4 text-center text-xs font-bold text-slate-400">No activity history logged.</div>
+              ) : (
+                <div className="relative border-l-2 border-slate-200 ml-2.5 pl-4 space-y-4 text-xs">
+                  {activities.slice(0, 3).map((act, i) => (
+                    <div key={act.activityId || i} className="relative">
+                      <span className={`absolute w-2.5 h-2.5 rounded-full -left-[21px] top-1 ${i === 0 ? 'bg-blue-600 ring-4 ring-blue-50' : 'bg-slate-300'}`} />
+                      <div className="font-bold text-slate-800">{act.userDisplayName} {act.activityType?.toLowerCase()}</div>
+                      <div className="text-[10px] text-slate-400 font-mono mt-0.5">{act.activityTime ? act.activityTime.replace('T', ' ').substring(0, 16) : 'Recently'}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-            
-            <form onSubmit={handleUpdateProject} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Project Name *</label>
-                <input
-                  type="text"
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm font-medium"
-                  required
-                />
-              </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Planned Start</label>
-                  <input
-                    type="date"
-                    value={editStart}
-                    onChange={(e) => setEditStart(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm font-medium"
-                  />
+            {/* ─── View Tasks Pointer Banner ──────────────────────────── */}
+            <button
+              onClick={() => navigate(`/tasks?projectId=${projectId}`)}
+              className="w-full p-4 bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white rounded-2xl flex items-center justify-between gap-3 shadow-lg shadow-blue-200 transition-all active:scale-[0.98] cursor-pointer"
+            >
+              <div className="text-left">
+                <div className="text-xs font-extrabold">Project Task Board</div>
+                <div className="text-[10px] text-blue-200 mt-0.5">View all tasks linked to this project</div>
+              </div>
+              <div className="flex items-center gap-1.5 bg-white/20 text-white text-xs font-bold px-3 py-1.5 rounded-xl">
+                Tasks <ArrowRight size={13} />
+              </div>
+            </button>
+
+          </div>
+        </div>
+      )}
+
+      {/* ─── TAB 2: MILESTONES ──────────────────────────────────────────────── */}
+      {activeTab === 'milestones' && (
+        <div className="bg-white rounded-3xl border border-slate-200/80 shadow-2xs p-5 space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div>
+              <h3 className="font-extrabold text-base text-slate-900">Project Milestones Schedule</h3>
+              <p className="text-xs text-slate-400">Key targets and completion status</p>
+            </div>
+            {canUpdate && !isArchived && (
+              <button onClick={() => setIsAddMilestoneOpen(true)} className="flex items-center gap-1.5 bg-blue-600 text-white px-3.5 py-1.5 rounded-xl text-xs font-bold hover:bg-blue-700 transition-all cursor-pointer">
+                <Plus size={14} /> Add Milestone
+              </button>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            {milestones.length === 0 ? (
+              <p className="text-xs font-semibold text-slate-400 text-center py-10">No milestones configured for this project.</p>
+            ) : (
+              milestones.map(ms => {
+                const isCompleted = ms.status === 'COMPLETED';
+                return (
+                  <div key={ms.milestoneId} className={`p-3.5 rounded-2xl border flex items-center justify-between transition-all ${isCompleted ? 'bg-emerald-50/40 border-emerald-200' : 'bg-slate-50/60 border-slate-100'}`}>
+                    <div className="flex items-start gap-3">
+                      <span className={`material-symbols-outlined text-[22px] ${isCompleted ? 'text-emerald-600' : 'text-slate-400'}`}>
+                        {isCompleted ? 'check_circle' : 'flag'}
+                      </span>
+                      <div>
+                        <h4 className={`font-bold text-xs ${isCompleted ? 'text-slate-400 line-through' : 'text-slate-900'}`}>{ms.milestoneName}</h4>
+                        {ms.description && <p className="text-[11px] text-slate-500 mt-0.5">{ms.description}</p>}
+                        <div className="text-[10px] font-mono text-slate-400 font-bold mt-1">Target: {ms.targetDate || 'TBD'}</div>
+                      </div>
+                    </div>
+
+                    {canUpdate && !isArchived && (
+                      <div className="flex gap-1.5">
+                        {!isCompleted && (
+                          <button onClick={() => handleCompleteMilestone(ms.milestoneId)} className="px-3 py-1 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 cursor-pointer">
+                            Complete
+                          </button>
+                        )}
+                        <button onClick={() => handleDeleteMilestone(ms.milestoneId)} className="p-1 text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer">
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ─── TAB 3: MEMBERS ─────────────────────────────────────────────────── */}
+      {activeTab === 'members' && (
+        <div className="bg-white rounded-3xl border border-slate-200/80 shadow-2xs p-5 space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div>
+              <h3 className="font-extrabold text-base text-slate-900">Project Member Directory</h3>
+              <p className="text-xs text-slate-400">Assigned engineers, project leads, and collaborators</p>
+            </div>
+            {canManageMembers && !isArchived && (
+              <button onClick={() => { setIsAddMemberOpen(true); loadEmployeesList(); }} className="flex items-center gap-1.5 bg-blue-600 text-white px-3.5 py-1.5 rounded-xl text-xs font-bold hover:bg-blue-700 transition-all cursor-pointer">
+                <Plus size={14} /> Add Member
+              </button>
+            )}
+          </div>
+
+          {members.length === 0 ? (
+            <div className="py-12 text-center text-xs font-semibold text-slate-400">No members assigned to this workspace yet.</div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+              {members.map(m => (
+                <div key={m.projectMemberId} className="p-4 rounded-2xl border border-slate-200/80 bg-slate-50/40 hover:bg-white transition-all space-y-3 shadow-2xs hover:shadow-sm">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white font-extrabold text-sm flex items-center justify-center shadow-xs shrink-0">
+                        {(m.displayName || 'U').substring(0, 2).toUpperCase()}
+                      </div>
+                      <div className="space-y-0.5">
+                        <h4 className="font-extrabold text-xs text-slate-900">{m.displayName}</h4>
+                        <div className="text-[10px] font-mono text-slate-500 flex items-center gap-1">
+                          <Mail size={11} className="text-slate-400" />
+                          <span className="truncate max-w-[140px]">{m.email || 'No email registered'}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {canManageMembers && !isArchived && m.userId !== projectDetails.ownerId && (
+                      <button onClick={() => handleRemoveMember(m.projectMemberId)} className="text-slate-400 hover:text-rose-600 p-1 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer">
+                        <Trash2 size={15} />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between border-t border-slate-100 pt-2.5 text-xs">
+                    <span className="bg-blue-50 text-blue-700 border border-blue-200/60 text-[9px] font-extrabold px-2.5 py-0.5 rounded-full uppercase">
+                      {m.projectRole}
+                    </span>
+                    <span className="text-[10px] font-semibold text-slate-400">
+                      Joined: {m.joinedAt ? m.joinedAt.split('T')[0] : 'Recent'}
+                    </span>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Planned End</label>
-                  <input
-                    type="date"
-                    value={editEnd}
-                    onChange={(e) => setEditEnd(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm font-medium"
-                  />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ─── TAB 4: DOCUMENTS ──────────────────────────────────────────────── */}
+      {activeTab === 'documents' && (
+        <div className="bg-white rounded-3xl border border-slate-200/80 shadow-2xs p-5 space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div>
+              <h3 className="font-extrabold text-base text-slate-900">Project Resources & Shared Files</h3>
+              <p className="text-xs text-slate-400">Attached documents, technical specs, and diagrams</p>
+            </div>
+          </div>
+
+          {canUploadDoc && !isArchived && (
+            <form onSubmit={handleUploadDoc} className="flex items-center gap-3 p-3.5 bg-slate-50 rounded-2xl border border-slate-200/60">
+              <input type="file" id="fileInput" onChange={(e) => setUploadFile(e.target.files[0])} className="text-xs font-semibold text-slate-600" />
+              <button type="submit" disabled={!uploadFile || actionLoading} className="px-4 py-1.5 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 cursor-pointer disabled:opacity-50">
+                {actionLoading ? 'Uploading...' : 'Upload File'}
+              </button>
+            </form>
+          )}
+
+          <div className="space-y-2 pt-1">
+            {documents.length === 0 ? (
+              <p className="text-xs font-semibold text-slate-400 text-center py-10">No documents uploaded to this workspace yet.</p>
+            ) : (
+              documents.map(doc => (
+                <div key={doc.documentId} className="flex items-center justify-between p-3 rounded-2xl border border-slate-100 bg-slate-50/50 hover:bg-white transition-colors">
+                  <div className="flex items-center gap-3">
+                    <FileText size={18} className="text-blue-600" />
+                    <div>
+                      <h4 className="font-bold text-xs text-slate-900">{doc.documentName}</h4>
+                      <span className="text-[10px] font-mono text-slate-400">{formatBytes(doc.fileSize)}</span>
+                    </div>
+                  </div>
+                  <div className="flex gap-1.5">
+                    <button onClick={() => handleDownloadDoc(doc.documentId)} className="p-1 text-blue-600 hover:bg-blue-50 rounded-lg cursor-pointer">
+                      <Download size={15} />
+                    </button>
+                    {canDeleteDoc && !isArchived && (
+                      <button onClick={() => handleDeleteDoc(doc.documentId)} className="p-1 text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer">
+                        <Trash2 size={15} />
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
 
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Description</label>
-                <textarea
-                  rows={3}
-                  value={editDesc}
-                  onChange={(e) => setEditDesc(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm font-medium resize-none"
-                />
-              </div>
+      {/* ─── TAB 5: COMMENTS (DISPLAY REAL USER NAME) ────────────────────── */}
+      {activeTab === 'comments' && (
+        <div className="bg-white rounded-3xl border border-slate-200/80 shadow-2xs p-5 space-y-4">
+          <h3 className="font-extrabold text-base text-slate-900">Discussion Feed</h3>
 
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Objectives</label>
-                <textarea
-                  rows={3}
-                  value={editObj}
-                  onChange={(e) => setEditObj(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm font-medium resize-none"
-                />
-              </div>
-
-              <div className="flex gap-2 justify-end pt-3 border-t border-gray-100">
-                <button type="button" onClick={() => setIsEditOpen(false)} className="md-button-secondary py-2">Cancel</button>
-                <button type="submit" className="md-button-primary py-2 px-5 cursor-pointer" disabled={actionLoading}>
-                  {actionLoading ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Save Details
+          {canCreateComment && !isArchived && (
+            <form onSubmit={handleAddComment} className="space-y-2.5">
+              <textarea
+                rows={3}
+                value={newComment}
+                onChange={e => setNewComment(e.target.value)}
+                placeholder="Share project updates or questions with the team..."
+                className="w-full p-3 border border-slate-200 rounded-2xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50/50"
+              />
+              <div className="flex justify-end">
+                <button type="submit" disabled={actionLoading || !newComment.trim()} className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition-all flex items-center gap-1.5 cursor-pointer">
+                  <Send size={13} /> Post Update
                 </button>
+              </div>
+            </form>
+          )}
+
+          <div className="space-y-3 pt-2">
+            {comments.length === 0 ? (
+              <p className="text-xs font-semibold text-slate-400 text-center py-10">No discussion updates yet.</p>
+            ) : (
+              comments.map(c => {
+                const author = members.find(m => m.userId === c.userId);
+                const authorName = c.userDisplayName || c.userFullName || c.userName || (author ? author.displayName : (c.userId === loggedInUser?.userId ? (loggedInUser.displayName || 'You') : 'Team Member'));
+                const initials = (authorName || 'U').substring(0, 2).toUpperCase();
+
+                return (
+                  <div key={c.commentId} className="p-4 rounded-2xl bg-slate-50/80 border border-slate-100 space-y-2">
+                    <div className="flex justify-between items-center text-xs">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-xl bg-blue-600 text-white font-extrabold text-[10px] flex items-center justify-center shadow-2xs">
+                          {initials}
+                        </div>
+                        <span className="font-extrabold text-slate-900">{authorName}</span>
+                        {c.userId === loggedInUser?.userId && (
+                          <span className="bg-blue-100 text-blue-800 text-[9px] font-black uppercase px-2 py-0.2 rounded-full">
+                            YOU
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[10px] font-mono text-slate-400">{c.createdAt ? c.createdAt.replace('T', ' ').substring(0, 16) : 'Recently'}</span>
+                    </div>
+                    <p className="text-xs font-medium text-slate-700 leading-relaxed pl-9">{c.comment}</p>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ─── TAB 6: ACTIVITIES ────────────────────────────────────────────── */}
+      {activeTab === 'activities' && (
+        <div className="bg-white rounded-3xl border border-slate-200/80 shadow-2xs p-5 space-y-4">
+          <div>
+            <h3 className="font-extrabold text-base text-slate-900">Project Activity Trail</h3>
+            <p className="text-xs text-slate-400">Audit history of status changes, member actions, and milestone updates</p>
+          </div>
+
+          <div className="relative border-l-2 border-slate-200 ml-3 pl-5 space-y-5 text-xs pt-2">
+            {activities.length === 0 ? (
+              <div className="text-xs font-bold text-slate-400 py-8 -ml-5 text-center">No activity history logged for this workspace.</div>
+            ) : (
+              activities.map(act => (
+                <div key={act.activityId} className="relative space-y-1">
+                  <span className="absolute w-3 h-3 bg-blue-600 rounded-full -left-[26px] top-1 ring-4 ring-blue-50" />
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-black text-slate-900">{act.userDisplayName}</span>
+                    <span className="bg-slate-100 text-slate-700 text-[9px] font-extrabold px-2 py-0.5 rounded-full uppercase">
+                      {act.activityType}
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-400 ml-auto">
+                      {act.activityTime ? act.activityTime.replace('T', ' ').substring(0, 16) : 'Recently'}
+                    </span>
+                  </div>
+                  {act.newValue && (
+                    <div className="p-2 bg-slate-50 rounded-xl border border-slate-100 text-[11px] font-medium text-slate-600 mt-1">
+                      {act.newValue}
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modals */}
+      {isEditOpen && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl p-6 w-full max-w-lg border border-slate-100 space-y-4">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <h3 className="font-bold text-base text-slate-900">Update Project Details</h3>
+              <button onClick={() => setIsEditOpen(false)} className="text-slate-400 hover:text-slate-700 cursor-pointer"><X size={18} /></button>
+            </div>
+            <form onSubmit={handleUpdateProject} className="space-y-4 text-xs font-semibold">
+              <div>
+                <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Project Name</label>
+                <input type="text" value={editName} onChange={e => setEditName(e.target.value)} className="w-full p-2.5 border border-slate-200 rounded-xl" required />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Planned Start</label>
+                  <input type="date" value={editStart} onChange={e => setEditStart(e.target.value)} className="w-full p-2.5 border border-slate-200 rounded-xl" />
+                </div>
+                <div>
+                  <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Planned End</label>
+                  <input type="date" value={editEnd} onChange={e => setEditEnd(e.target.value)} className="w-full p-2.5 border border-slate-200 rounded-xl" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Description</label>
+                <textarea rows={3} value={editDesc} onChange={e => setEditDesc(e.target.value)} className="w-full p-2.5 border border-slate-200 rounded-xl resize-none" />
+              </div>
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                <button type="button" onClick={() => setIsEditOpen(false)} className="px-4 py-2 border border-slate-200 rounded-xl text-slate-600">Cancel</button>
+                <button type="submit" disabled={actionLoading} className="px-5 py-2 bg-blue-600 text-white rounded-xl font-bold">Save Changes</button>
               </div>
             </form>
           </div>
@@ -1230,43 +916,26 @@ export const ProjectDetailsScreen = () => {
         document.body
       )}
 
-      {/* ─── MODAL 2: REASSIGN MANAGER ─────────────────────────────────────── */}
-      {isChangeManagerOpen && createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 overflow-y-auto">
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => setIsChangeManagerOpen(false)} />
-          <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 z-10 border border-gray-100 animate-fade-in my-auto">
-            <div className="flex items-center justify-between border-b border-gray-100 pb-3 mb-4">
-              <h2 className="text-base font-bold text-secondary-dark flex items-center gap-1.5"><User size={16} /> Reassign Project Manager</h2>
-              <button onClick={() => setIsChangeManagerOpen(false)} className="text-gray-400 hover:text-gray-600 cursor-pointer"><X size={16} /></button>
+      {isAddMemberOpen && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl p-6 w-full max-w-md border border-slate-100 space-y-4">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <h3 className="font-bold text-base text-slate-900">Add Team Member</h3>
+              <button onClick={() => setIsAddMemberOpen(false)} className="text-slate-400 hover:text-slate-700 cursor-pointer"><X size={18} /></button>
             </div>
-            
-            <form onSubmit={handleAssignManagerSubmit} className="space-y-4">
+            <form onSubmit={handleAddMember} className="space-y-4 text-xs font-semibold">
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Designate Manager</label>
-                <select
-                  value={newMemberId}
-                  onChange={(e) => setNewMemberId(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm font-medium"
-                  required
-                >
-                  <option value="">-- Select Active Project Member --</option>
-                  {/* Business Rule: The new manager must already be a project member */}
-                  {members.map((mem) => (
-                    <option key={mem.userId} value={mem.userId}>
-                      {mem.displayName} ({mem.projectRole})
-                    </option>
+                <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Select Employee</label>
+                <select value={newMemberId} onChange={e => setNewMemberId(e.target.value)} className="w-full p-2.5 border border-slate-200 rounded-xl" required>
+                  <option value="">-- Select Employee --</option>
+                  {employees.filter(emp => !members.some(m => m.userId === emp.userId)).map(emp => (
+                    <option key={emp.userId} value={emp.userId}>{emp.displayName} ({emp.employeeId})</option>
                   ))}
                 </select>
-                <p className="text-[10px] text-gray-400 font-semibold mt-1">
-                  * Note: Only active members of this project can be designated as the Project Manager.
-                </p>
               </div>
-
-              <div className="flex gap-2 justify-end pt-3 border-t border-gray-100">
-                <button type="button" onClick={() => setIsChangeManagerOpen(false)} className="md-button-secondary py-2">Cancel</button>
-                <button type="submit" className="md-button-primary py-2 px-5 cursor-pointer" disabled={actionLoading || !newMemberId}>
-                  {actionLoading ? <Loader2 size={14} className="animate-spin" /> : 'Assign Manager'}
-                </button>
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                <button type="button" onClick={() => setIsAddMemberOpen(false)} className="px-4 py-2 border border-slate-200 rounded-xl text-slate-600">Cancel</button>
+                <button type="submit" disabled={actionLoading || !newMemberId} className="px-5 py-2 bg-blue-600 text-white rounded-xl font-bold">Add Member</button>
               </div>
             </form>
           </div>
@@ -1274,113 +943,25 @@ export const ProjectDetailsScreen = () => {
         document.body
       )}
 
-      {/* ─── MODAL 3: ADD MEMBER ───────────────────────────────────────────── */}
-      {isAddMemberOpen && createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 overflow-y-auto">
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => setIsAddMemberOpen(false)} />
-          <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 z-10 border border-gray-100 animate-fade-in my-auto">
-            <div className="flex items-center justify-between border-b border-gray-100 pb-3 mb-4">
-              <h2 className="text-base font-bold text-secondary-dark flex items-center gap-1.5"><Users size={16} /> Add Team Member</h2>
-              <button onClick={() => setIsAddMemberOpen(false)} className="text-gray-400 hover:text-gray-600 cursor-pointer"><X size={16} /></button>
-            </div>
-            
-            <form onSubmit={handleAddMember} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Select Employee</label>
-                <select
-                  value={newMemberId}
-                  onChange={(e) => setNewMemberId(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm font-medium"
-                  required
-                >
-                  <option value="">-- Select Employee --</option>
-                  {employees
-                    .filter(emp => !members.some(m => m.userId === emp.userId))
-                    .map((emp) => (
-                      <option key={emp.userId} value={emp.userId}>
-                        {emp.displayName} ({emp.employeeId})
-                      </option>
-                    ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Role Designation</label>
-                <select
-                  value={newMemberRole}
-                  onChange={(e) => setNewMemberRole(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm font-medium"
-                  required
-                >
-                  <option value="TEAM_MEMBER">Team Member</option>
-                  <option value="DEVELOPER">Developer</option>
-                  <option value="QA">QA Tester</option>
-                  <option value="TESTER">Tester</option>
-                  <option value="DESIGNER">Designer</option>
-                </select>
-              </div>
-
-              <div className="flex gap-2 justify-end pt-3 border-t border-gray-100">
-                <button type="button" onClick={() => setIsAddMemberOpen(false)} className="md-button-secondary py-2">Cancel</button>
-                <button type="submit" className="md-button-primary py-2 px-5 cursor-pointer" disabled={actionLoading || !newMemberId}>
-                  {actionLoading ? <Loader2 size={14} className="animate-spin" /> : 'Add Member'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>,
-        document.body
-      )}
-
-      {/* ─── MODAL 4: ADD MILESTONE ────────────────────────────────────────── */}
       {isAddMilestoneOpen && createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 overflow-y-auto">
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => setIsAddMilestoneOpen(false)} />
-          <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 z-10 border border-gray-100 animate-fade-in my-auto">
-            <div className="flex items-center justify-between border-b border-gray-100 pb-3 mb-4">
-              <h2 className="text-base font-bold text-secondary-dark flex items-center gap-1.5"><Milestone size={16} /> Add Project Milestone</h2>
-              <button onClick={() => setIsAddMilestoneOpen(false)} className="text-gray-400 hover:text-gray-600 cursor-pointer"><X size={16} /></button>
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl p-6 w-full max-w-md border border-slate-100 space-y-4">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <h3 className="font-bold text-base text-slate-900">Add Project Milestone</h3>
+              <button onClick={() => setIsAddMilestoneOpen(false)} className="text-slate-400 hover:text-slate-700 cursor-pointer"><X size={18} /></button>
             </div>
-            
-            <form onSubmit={handleCreateMilestone} className="space-y-4">
+            <form onSubmit={handleCreateMilestone} className="space-y-4 text-xs font-semibold">
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Milestone Name *</label>
-                <input
-                  type="text"
-                  value={newMsName}
-                  onChange={(e) => setNewMsName(e.target.value)}
-                  placeholder="e.g. Requirements Review"
-                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm font-medium"
-                  required
-                />
+                <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Milestone Name *</label>
+                <input type="text" value={newMsName} onChange={e => setNewMsName(e.target.value)} className="w-full p-2.5 border border-slate-200 rounded-xl" required />
               </div>
-
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Target Date</label>
-                <input
-                  type="date"
-                  value={newMsTarget}
-                  onChange={(e) => setNewMsTarget(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm font-medium"
-                />
+                <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Target Date</label>
+                <input type="date" value={newMsTarget} onChange={e => setNewMsTarget(e.target.value)} className="w-full p-2.5 border border-slate-200 rounded-xl" />
               </div>
-
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Description</label>
-                <textarea
-                  rows={2}
-                  value={newMsDesc}
-                  onChange={(e) => setNewMsDesc(e.target.value)}
-                  placeholder="Detail summary of milestone gates..."
-                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm font-medium resize-none"
-                />
-              </div>
-
-              <div className="flex gap-2 justify-end pt-3 border-t border-gray-100">
-                <button type="button" onClick={() => setIsAddMilestoneOpen(false)} className="md-button-secondary py-2">Cancel</button>
-                <button type="submit" className="md-button-primary py-2 px-5 cursor-pointer" disabled={actionLoading || !newMsName.trim()}>
-                  {actionLoading ? <Loader2 size={14} className="animate-spin" /> : 'Create Milestone'}
-                </button>
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                <button type="button" onClick={() => setIsAddMilestoneOpen(false)} className="px-4 py-2 border border-slate-200 rounded-xl text-slate-600">Cancel</button>
+                <button type="submit" disabled={actionLoading || !newMsName.trim()} className="px-5 py-2 bg-blue-600 text-white rounded-xl font-bold">Create Milestone</button>
               </div>
             </form>
           </div>

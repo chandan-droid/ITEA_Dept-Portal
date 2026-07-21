@@ -42,8 +42,13 @@ public class AnnouncementScheduler {
                 announcementRepository.save(announcement);
 
                 List<Long> allUserIds = jdbcTemplate.queryForList("SELECT user_id FROM users WHERE status = 'ACTIVE'", Long.class);
+                // Exclude creator from notification recipients
+                final Long creatorId = announcement.getCreatedBy();
+                List<Long> recipients = allUserIds.stream()
+                        .filter(uid -> !uid.equals(creatorId))
+                        .toList();
                 eventPublisher.publishEvent(new NotificationEvent(
-                        allUserIds,
+                        recipients,
                         "ANNOUNCEMENT",
                         "Announcement: " + announcement.getTitle(),
                         announcement.getMessage(),

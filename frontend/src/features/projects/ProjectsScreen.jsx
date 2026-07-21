@@ -1,37 +1,41 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { projectApi } from '../../core/api/projectApi';
 import { useAuth } from '../authentication/AuthProvider';
-import { Card } from '../../shared/components/Card';
 import { CreateProjectModal } from './CreateProjectModal';
+import { ProjectDetailsScreen } from './ProjectDetailsScreen';
 import { useDebounce } from '../../shared/hooks/useDebounce';
 import { 
-  FolderPlus, Search, Filter, RotateCcw, LayoutDashboard, 
-  Calendar, User, AlertCircle, ChevronLeft, ChevronRight,
-  TrendingUp, BarChart3, CheckSquare, Clock
+  FolderPlus, Search, Calendar, Users, ArrowRight, Layers, CheckCircle2, Hourglass, CirclePause, CircleOff, Circle
 } from 'lucide-react';
+
+const STATUS_META = {
+  ACTIVE:    { label: 'Active',    icon: CheckCircle2,  chip: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' },
+  PLANNING:  { label: 'Planning',  icon: Circle,         chip: 'bg-blue-50 text-blue-700 border-blue-200',         dot: 'bg-blue-500'    },
+  ON_HOLD:   { label: 'On Hold',   icon: CirclePause,    chip: 'bg-amber-50 text-amber-700 border-amber-200',       dot: 'bg-amber-500'   },
+  COMPLETED: { label: 'Completed', icon: CheckCircle2,   chip: 'bg-teal-50 text-teal-700 border-teal-200',          dot: 'bg-teal-500'    },
+  CANCELLED: { label: 'Cancelled', icon: CircleOff,      chip: 'bg-rose-50 text-rose-700 border-rose-200',          dot: 'bg-rose-500'    },
+};
+
+const getStatusMeta = (status) => STATUS_META[(status || 'PLANNING').toUpperCase()] || { label: status, chip: 'bg-slate-100 text-slate-600 border-slate-200', dot: 'bg-slate-400' };
 
 export const ProjectsScreen = () => {
   const navigate = useNavigate();
+  const { projectId: urlProjectId } = useParams();
   const { hasPermission } = useAuth();
 
-  const [activeTab, setActiveTab] = useState('my'); // 'my' or 'all'
+  const [activeTab, setActiveTab] = useState('my');
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  
+
   const [page, setPage] = useState(0);
-  const [size] = useState(6); // Grid items per page
+  const [size] = useState(20);
   const [totalPages, setTotalPages] = useState(0);
-  const [totalElements, setTotalElements] = useState(0);
   const [error, setError] = useState(null);
 
-  // Dashboard Stats State
-  const [dashboardStats, setDashboardStats] = useState(null);
-  const [loadingDashboard, setLoadingDashboard] = useState(false);
-
-  // Modal State
+  const [tabCounts, setTabCounts] = useState({ ALL: 0, ACTIVE: 0, PLANNING: 0, ON_HOLD: 0, COMPLETED: 0, CANCELLED: 0 });
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const debouncedSearch = useDebounce(search, 300);
@@ -39,381 +43,242 @@ export const ProjectsScreen = () => {
   const canCreate = hasPermission('PROJECT_CREATE');
   const canViewTeam = hasPermission('PROJECT_VIEW_TEAM');
 
-  // Enforce tab security on load
   useEffect(() => {
-    if (!canViewTeam && activeTab === 'all') {
-      setActiveTab('my');
-    }
+    if (!canViewTeam && activeTab === 'all') setActiveTab('my');
   }, [canViewTeam]);
 
-  // Load projects list
+  const fetchTabCounts = async () => {
+    try {
+      const params = { page: 0, size: 500 };
+      const res = activeTab === 'all'
+        ? await projectApi.getTeamProjects(params)
+        : await projectApi.getMyProjects(params);
+      const list = res.content || [];
+      const counts = { ALL: list.length, ACTIVE: 0, PLANNING: 0, ON_HOLD: 0, COMPLETED: 0, CANCELLED: 0 };
+      list.forEach(p => {
+        const st = (p.status || '').toUpperCase();
+        if (counts[st] !== undefined) counts[st]++;
+      });
+      setTabCounts(counts);
+    } catch (e) { console.error(e); }
+  };
+
   const loadProjects = async () => {
     setLoading(true);
     setError(null);
     try {
       const params = {
-        page,
-        size,
+        page, size,
         search: debouncedSearch.trim() || undefined,
         status: statusFilter || undefined
       };
+      const response = activeTab === 'all'
+        ? await projectApi.getTeamProjects(params)
+        : await projectApi.getMyProjects(params);
 
-      let response;
-      if (activeTab === 'all') {
-        response = await projectApi.getTeamProjects(params);
-      } else {
-        response = await projectApi.getMyProjects(params);
-      }
-
-      setProjects(response.content || []);
+      const list = response.content || [];
+      setProjects(list);
       setTotalPages(response.totalPages || 0);
-      setTotalElements(response.totalElements || 0);
+
+      if (!urlProjectId && list.length > 0 && window.innerWidth >= 1024) {
+        navigate(`/projects/${list[0].projectId}`, { replace: true });
+      }
     } catch (err) {
-      console.error('Failed to load project list', err);
       setError(err.message || 'Access denied or server error');
     } finally {
       setLoading(false);
     }
   };
 
-  // Load dashboard metrics
-  const loadDashboardStats = async () => {
-    if (canViewTeam) {
-      setLoadingDashboard(true);
-      try {
-        const stats = await projectApi.getDashboard();
-        setDashboardStats(stats);
-      } catch (err) {
-        console.error('Failed to load dashboard metrics', err);
-      } finally {
-        setLoadingDashboard(false);
-      }
-    }
-  };
-
-  useEffect(() => {
-    loadProjects();
-  }, [page, activeTab, debouncedSearch, statusFilter]);
-
-  useEffect(() => {
-    loadDashboardStats();
-  }, []);
-
-  const handlePageChange = (newPage) => {
-    if (newPage >= 0 && newPage < totalPages) {
-      setPage(newPage);
-    }
-  };
+  useEffect(() => { fetchTabCounts(); }, [activeTab]);
+  useEffect(() => { loadProjects(); }, [page, activeTab, debouncedSearch, statusFilter]);
 
   const handleCreateProject = async (payload) => {
-    await projectApi.create(payload);
-    loadProjects();
-    loadDashboardStats();
+    const created = await projectApi.create(payload);
+    await fetchTabCounts();
+    await loadProjects();
+    if (created?.projectId) navigate(`/projects/${created.projectId}`);
   };
 
-  const resetFilters = () => {
-    setSearch('');
-    setStatusFilter('');
-    setPage(0);
-  };
+  const selectedProjectId = urlProjectId ? parseInt(urlProjectId, 10) : null;
 
-  const getStatusStyle = (status) => {
-    switch (status.toUpperCase()) {
-      case 'ACTIVE':
-        return { badge: 'bg-green-50 text-green-700 border-green-200', dot: 'bg-green-500' };
-      case 'PLANNING':
-        return { badge: 'bg-blue-50 text-blue-700 border-blue-200', dot: 'bg-blue-500' };
-      case 'ON_HOLD':
-        return { badge: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-500' };
-      case 'COMPLETED':
-        return { badge: 'bg-teal-50 text-teal-700 border-teal-200', dot: 'bg-teal-500' };
-      case 'CANCELLED':
-        return { badge: 'bg-rose-50 text-rose-700 border-rose-200', dot: 'bg-rose-500' };
-      case 'ARCHIVED':
-        return { badge: 'bg-purple-50 text-purple-700 border-purple-200', dot: 'bg-purple-500' };
-      default:
-        return { badge: 'bg-gray-50 text-gray-700 border-gray-200', dot: 'bg-gray-500' };
-    }
-  };
+  const STATUS_FILTER_OPTIONS = [
+    { key: '', label: 'All', countKey: 'ALL' },
+    { key: 'ACTIVE', label: 'Active', countKey: 'ACTIVE' },
+    { key: 'PLANNING', label: 'Planning', countKey: 'PLANNING' },
+    { key: 'ON_HOLD', label: 'On Hold', countKey: 'ON_HOLD' },
+    { key: 'COMPLETED', label: 'Done', countKey: 'COMPLETED' },
+  ];
 
   return (
-    <div className="space-y-6 select-none animate-fade-in">
-      
-      {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-secondary-dark tracking-tight">Project Management</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Enterprise governance, schedules, milestones, and shared files.
-          </p>
-        </div>
-        {canCreate && (
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="md-button-primary"
-          >
-            <FolderPlus size={18} /> Create Project
-          </button>
-        )}
-      </div>
+    <div className="space-y-4 select-none animate-fade-in font-sans pb-10">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
 
-      {/* Dashboard Stats Panel (visible to managers/admins) */}
-      {canViewTeam && dashboardStats && (
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-          <div className="bg-white p-4 rounded-large border border-gray-100 shadow-sm flex items-center gap-3">
-            <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
-              <BarChart3 size={20} />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-gray-400">Total Projects</p>
-              <h4 className="text-xl font-bold text-secondary-dark">{dashboardStats.totalProjects}</h4>
-            </div>
-          </div>
+        {/* ─── LEFT MASTER PANE ───────────────────────────────────────────── */}
+        <div className={`lg:col-span-4 ${urlProjectId ? 'hidden lg:block' : 'block'}`}>
+          <div className="bg-white rounded-3xl border border-slate-200/70 shadow-sm p-4 space-y-3.5">
 
-          <div className="bg-white p-4 rounded-large border border-gray-100 shadow-sm flex items-center gap-3">
-            <div className="p-2 bg-green-50 text-green-600 rounded-xl">
-              <TrendingUp size={20} />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-gray-400">Active</p>
-              <h4 className="text-xl font-bold text-secondary-dark">{dashboardStats.activeProjects}</h4>
-            </div>
-          </div>
-
-          <div className="bg-white p-4 rounded-large border border-gray-100 shadow-sm flex items-center gap-3">
-            <div className="p-2 bg-teal-50 text-teal-600 rounded-xl">
-              <CheckSquare size={20} />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-gray-400">Completed</p>
-              <h4 className="text-xl font-bold text-secondary-dark">{dashboardStats.completedProjects}</h4>
-            </div>
-          </div>
-
-          <div className="bg-white p-4 rounded-large border border-gray-100 shadow-sm flex items-center gap-3">
-            <div className="p-2 bg-rose-50 text-rose-600 rounded-xl">
-              <Clock size={20} />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-gray-400">Overdue</p>
-              <h4 className="text-xl font-bold text-rose-600">{dashboardStats.overdueProjects}</h4>
-            </div>
-          </div>
-
-          <div className="bg-white p-4 rounded-large border border-gray-100 shadow-sm col-span-2 lg:col-span-1 flex items-center gap-3">
-            <div className="p-2 bg-purple-50 text-purple-600 rounded-xl">
-              <Calendar size={20} />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-gray-400">Upcoming Milestones</p>
-              <h4 className="text-xl font-bold text-secondary-dark">{dashboardStats.upcomingMilestones}</h4>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Tabs and Filters Panel */}
-      <div className="bg-white p-4 rounded-large border border-gray-100 shadow-sm space-y-4">
-        
-        {/* Navigation Tabs */}
-        <div className="flex items-center justify-between border-b border-gray-100 pb-2">
-          <div className="flex gap-2">
-            <button
-              onClick={() => { setActiveTab('my'); setPage(0); }}
-              className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all ${
-                activeTab === 'my'
-                  ? 'bg-primary text-white shadow-sm'
-                  : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800'
-              }`}
-            >
-              My Projects
-            </button>
-            {canViewTeam && (
-              <button
-                onClick={() => { setActiveTab('all'); setPage(0); }}
-                className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all ${
-                  activeTab === 'all'
-                    ? 'bg-primary text-white shadow-sm'
-                    : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800'
-                }`}
-              >
-                All Team Projects
-              </button>
-            )}
-          </div>
-          
-          <button
-            onClick={resetFilters}
-            className="flex items-center gap-1 text-xs font-semibold text-gray-400 hover:text-primary transition-colors cursor-pointer"
-          >
-            <RotateCcw size={12} /> Clear Filters
-          </button>
-        </div>
-
-        {/* Input Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="relative">
-            <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-gray-400">
-              <Search size={16} />
-            </span>
-            <input
-              type="text"
-              placeholder="Search by name or code..."
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(0); }}
-              className="w-full pl-10 pr-4 py-2.5 bg-gray-50/70 border border-gray-200 rounded-xl text-sm font-medium text-secondary-dark focus:outline-none focus:bg-white focus:border-accent focus:ring-4 focus:ring-accent/10 transition-all"
-            />
-          </div>
-
-          <div className="relative">
-            <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-gray-400">
-              <Filter size={16} />
-            </span>
-            <select
-              value={statusFilter}
-              onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }}
-              className="w-full pl-10 pr-4 py-2.5 bg-gray-50/70 border border-gray-200 rounded-xl text-sm font-medium text-secondary-dark focus:outline-none focus:bg-white focus:border-accent focus:ring-4 focus:ring-accent/10 transition-all appearance-none"
-            >
-              <option value="">All Statuses</option>
-              <option value="PLANNING">Planning</option>
-              <option value="ACTIVE">Active</option>
-              <option value="ON_HOLD">On Hold</option>
-              <option value="COMPLETED">Completed</option>
-              <option value="CANCELLED">Cancelled</option>
-              <option value="ARCHIVED">Archived</option>
-            </select>
-          </div>
-        </div>
-
-      </div>
-
-      {/* Projects Grid List */}
-      {loading ? (
-        <div className="py-24 text-center">
-          <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-sm text-gray-400 font-medium">Loading project workspace...</p>
-        </div>
-      ) : error ? (
-        <div className="p-4 bg-red-50 text-red-800 border border-red-200 rounded-large flex items-center gap-3">
-          <AlertCircle size={20} className="shrink-0" />
-          <p className="text-sm font-semibold">{error}</p>
-        </div>
-      ) : projects.length === 0 ? (
-        <div className="bg-white py-16 text-center rounded-large border border-gray-100 shadow-sm">
-          <span className="material-symbols-outlined text-[64px] text-gray-300 mb-3">folder_open</span>
-          <h3 className="text-lg font-bold text-gray-700">No Projects Found</h3>
-          <p className="text-sm text-gray-400 mt-1 max-w-sm mx-auto">
-            Try adjusting search inputs, changing tabs, or create a new project workspace.
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {projects.map((project) => {
-              const { badge: badgeClass, dot: dotClass } = getStatusStyle(project.status);
-              
-              return (
-                <div
-                  key={project.projectId}
-                  onClick={() => navigate(`/projects/${project.projectId}`)}
-                  className="bg-white border border-gray-200 rounded-large p-5 hover:translate-y-[-2px] hover:shadow-lg hover:border-accent/20 cursor-pointer transition-all duration-300 flex flex-col group h-[260px] justify-between shadow-sm"
+            {/* Top bar: tabs + new button */}
+            <div className="flex items-center gap-2">
+              <div className="flex bg-slate-100/80 p-1 rounded-2xl border border-slate-200/60 flex-1">
+                <button
+                  onClick={() => { setActiveTab('my'); setPage(0); setStatusFilter(''); }}
+                  className={`flex-1 py-1.5 text-xs font-extrabold rounded-xl transition-all cursor-pointer ${activeTab === 'my' ? 'bg-blue-600 text-white shadow' : 'text-slate-500 hover:text-slate-800'}`}
                 >
-                  <div className="space-y-3">
-                    {/* Code & Badge */}
-                    <div className="flex items-center justify-between">
-                      <span className="font-mono text-xs font-bold text-gray-400 tracking-wider">
-                        {project.projectCode}
-                      </span>
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wide border ${badgeClass}`}>
-                        <span className={`w-1.5 h-1.5 mr-1.5 rounded-full ${dotClass}`} />
-                        {project.status}
-                      </span>
-                    </div>
+                  My Projects
+                </button>
+                {canViewTeam && (
+                  <button
+                    onClick={() => { setActiveTab('all'); setPage(0); setStatusFilter(''); }}
+                    className={`flex-1 py-1.5 text-xs font-extrabold rounded-xl transition-all cursor-pointer ${activeTab === 'all' ? 'bg-blue-600 text-white shadow' : 'text-slate-500 hover:text-slate-800'}`}
+                  >
+                    All Projects
+                  </button>
+                )}
+              </div>
 
-                    {/* Name */}
-                    <div>
-                      <h3 className="font-bold text-secondary-dark group-hover:text-accent transition-colors text-base line-clamp-1">
-                        {project.projectName}
-                      </h3>
-                      {project.description && (
-                        <p className="text-xs text-gray-400 line-clamp-2 mt-1 font-medium">
-                          {project.description}
-                        </p>
+              {canCreate && (
+                <button
+                  onClick={() => setIsModalOpen(true)}
+                  title="Create New Project"
+                  className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-2xl text-xs font-extrabold shadow-sm transition-all active:scale-95 cursor-pointer shrink-0"
+                >
+                  <FolderPlus size={15} />
+                  <span>New</span>
+                </button>
+              )}
+            </div>
+
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 text-slate-400" size={14} />
+              <input
+                type="text"
+                placeholder="Search project name or code..."
+                value={search}
+                onChange={e => { setSearch(e.target.value); setPage(0); }}
+                className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+              />
+            </div>
+
+            {/* Status filter chips with counts */}
+            <div className="flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
+              {STATUS_FILTER_OPTIONS.map(st => {
+                const count = tabCounts[st.countKey] || 0;
+                const isActive = statusFilter === st.key;
+                return (
+                  <button
+                    key={st.key}
+                    onClick={() => { setStatusFilter(st.key); setPage(0); }}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border shrink-0 text-[10px] font-bold transition-all cursor-pointer ${
+                      isActive
+                        ? 'bg-slate-900 text-white border-slate-900 shadow'
+                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+                    }`}
+                  >
+                    <span>{st.label}</span>
+                    <span className={`text-[9px] font-mono font-extrabold px-1.5 py-0.5 rounded-full leading-none ${isActive ? 'bg-white/25 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* ─── PROJECT CARD LIST ──────────────────────────────────────── */}
+            <div className="space-y-2 max-h-[calc(100vh-220px)] overflow-y-auto pr-0.5 scrollbar-none">
+              {loading ? (
+                <div className="py-16 text-center text-xs font-bold text-slate-400">Loading projects...</div>
+              ) : projects.length === 0 ? (
+                <div className="py-12 text-center text-xs font-bold text-slate-400">No projects found.</div>
+              ) : (
+                projects.map(p => {
+                  const isSelected = selectedProjectId === p.projectId;
+                  const meta = getStatusMeta(p.status);
+                  const endDate = p.plannedEndDate ? p.plannedEndDate.substring(5) : null;
+                  const memberCount = p.memberCount ?? null;
+
+                  return (
+                    <div
+                      key={p.projectId}
+                      onClick={() => navigate(`/projects/${p.projectId}`)}
+                      className={`group rounded-2xl border transition-all cursor-pointer relative overflow-hidden ${
+                        isSelected
+                          ? 'bg-blue-600 border-blue-600 shadow-lg shadow-blue-200'
+                          : 'bg-white border-slate-200/80 hover:border-blue-300 hover:shadow-sm'
+                      }`}
+                    >
+                      {/* Accent left stripe */}
+                      {!isSelected && (
+                        <span className={`absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl ${meta.dot}`} />
                       )}
-                    </div>
-                  </div>
 
-                  {/* Progress & Metadata */}
-                  <div className="space-y-4 pt-3 border-t border-gray-50">
-                    
-                    {/* Progress Bar */}
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between text-xs font-semibold">
-                        <span className="text-gray-400">Progress</span>
-                        <span className="text-secondary-dark">{project.progressPercentage}%</span>
-                      </div>
-                      <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-accent transition-all duration-500"
-                          style={{ width: `${project.progressPercentage}%` }}
-                        />
-                      </div>
-                    </div>
+                      <div className="p-3.5 pl-4 space-y-2.5">
+                        {/* Row 1: Code + Status Chip */}
+                        <div className="flex items-center justify-between gap-2">
+                          <span className={`font-mono text-[9px] font-extrabold uppercase tracking-widest ${isSelected ? 'text-blue-200' : 'text-slate-400'}`}>
+                            {p.projectCode}
+                          </span>
+                          <span className={`text-[8px] font-extrabold uppercase px-2 py-0.5 rounded-full border ${
+                            isSelected
+                              ? 'bg-white/20 text-white border-white/30'
+                              : meta.chip
+                          }`}>
+                            {meta.label}
+                          </span>
+                        </div>
 
-                    {/* Manager & Timeline */}
-                    <div className="flex items-center justify-between text-xs text-gray-500 font-medium">
-                      <div className="flex items-center gap-1">
-                        <User size={12} className="text-gray-400" />
-                        <span className="truncate max-w-[120px]">{project.ownerName}</span>
+                        {/* Row 2: Project name */}
+                        <h4 className={`font-extrabold text-xs leading-snug line-clamp-2 ${isSelected ? 'text-white' : 'text-slate-900'}`}>
+                          {p.projectName}
+                        </h4>
+
+                        {/* Row 3: Meta footer */}
+                        <div className={`flex items-center justify-between text-[10px] font-semibold pt-2 border-t ${
+                          isSelected ? 'border-blue-500/50 text-blue-200' : 'border-slate-100 text-slate-500'
+                        }`}>
+                          <div className="flex items-center gap-1 truncate">
+                            <span className="truncate max-w-[130px]">{p.ownerName || 'Manager'}</span>
+                          </div>
+                          {endDate && (
+                            <div className={`flex items-center gap-1 shrink-0 ${isSelected ? 'text-blue-200' : 'text-slate-400'}`}>
+                              <Calendar size={10} />
+                              <span className="font-mono">{endDate}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      {project.plannedEndDate && (
-                        <div className="flex items-center gap-1">
-                          <Calendar size={12} className="text-gray-400" />
-                          <span>Due {project.plannedEndDate}</span>
+
+                      {/* Selected indicator arrow */}
+                      {isSelected && (
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2 text-blue-200">
+                          <ArrowRight size={14} />
                         </div>
                       )}
                     </div>
-
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Pagination Controls */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between bg-white px-4 py-3 rounded-large border border-gray-100 shadow-sm text-xs font-semibold text-gray-500 select-none">
-              <div>
-                Showing page <span className="text-secondary-dark">{page + 1}</span> of <span className="text-secondary-dark">{totalPages}</span> ({totalElements} total projects)
-              </div>
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => handlePageChange(page - 1)}
-                  disabled={page === 0}
-                  className="p-1.5 border border-gray-200 rounded-lg hover:bg-gray-50 hover:text-gray-800 disabled:opacity-40 transition-all cursor-pointer"
-                >
-                  <ChevronLeft size={16} />
-                </button>
-                <button
-                  onClick={() => handlePageChange(page + 1)}
-                  disabled={page === totalPages - 1}
-                  className="p-1.5 border border-gray-200 rounded-lg hover:bg-gray-50 hover:text-gray-800 disabled:opacity-40 transition-all cursor-pointer"
-                >
-                  <ChevronRight size={16} />
-                </button>
-              </div>
+                  );
+                })
+              )}
             </div>
-          )}
+          </div>
         </div>
+
+        {/* ─── RIGHT DETAIL PANE ──────────────────────────────────────────── */}
+        <div className={`lg:col-span-8 ${!urlProjectId ? 'hidden lg:block' : 'block'}`}>
+          <ProjectDetailsScreen
+            embeddedProjectId={selectedProjectId}
+            onBackToList={() => navigate('/projects')}
+          />
+        </div>
+      </div>
+
+      {isModalOpen && (
+        <CreateProjectModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          onSubmit={handleCreateProject}
+        />
       )}
-
-      {/* Create Project Modal */}
-      <CreateProjectModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onCreateSuccess={handleCreateProject}
-      />
-
     </div>
   );
 };

@@ -16,6 +16,7 @@ import { TasksScreen } from '../features/tasks/TasksScreen';
 import { TaskDetailsScreen } from '../features/tasks/TaskDetailsScreen';
 import AnnouncementsScreen from '../features/announcements/AnnouncementsScreen';
 import NotificationsScreen from '../features/notifications/NotificationsScreen';
+import { CalendarScreen } from '../features/calendar/CalendarScreen';
 
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
@@ -53,10 +54,10 @@ export const AppRoutes = () => {
         <Route path="tasks" element={<TasksScreen />} />
         <Route path="tasks/:taskId" element={<TaskDetailsScreen />} />
         <Route path="projects" element={<ProjectsScreen />} />
-        <Route path="projects/:projectId" element={<ProjectDetailsScreen />} />
+        <Route path="projects/:projectId" element={<ProjectsScreen />} />
         <Route path="announcements" element={<AnnouncementsScreen />} />
         <Route path="notifications" element={<NotificationsScreen />} />
-        <Route path="calendar" element={<ComingSoon page="Calendar" />} />
+        <Route path="calendar" element={<CalendarScreen />} />
         <Route path="reports" element={<ComingSoon page="Reports" />} />
         <Route path="admin" element={<ComingSoon page="Administration" />} />
       </Route>

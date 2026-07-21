@@ -118,10 +118,13 @@ public class AnnouncementService {
         announcement.setPublishedAt(now);
         announcement = announcementRepository.save(announcement);
 
-        // 🚀 Broadcast NotificationEvent for ALL active users
+        // 🚀 Broadcast NotificationEvent for ALL active users EXCEPT the creator
         List<Long> allUserIds = getAllActiveUserIds();
+        List<Long> recipients = allUserIds.stream()
+                .filter(uid -> !uid.equals(adminUserId))
+                .toList();
         eventPublisher.publishEvent(new NotificationEvent(
-                allUserIds,
+                recipients,
                 "ANNOUNCEMENT",
                 "Announcement: " + announcement.getTitle(),
                 announcement.getMessage(),
@@ -129,7 +132,7 @@ public class AnnouncementService {
                 announcement.getAnnouncementId()
         ));
 
-        log.info("Announcement {} published by admin user {}. Broadcasted to {} users.", announcementId, adminUserId, allUserIds.size());
+        log.info("Announcement {} published by admin user {}. Broadcasted to {} users (creator excluded).", announcementId, adminUserId, recipients.size());
         return announcement;
     }
 
