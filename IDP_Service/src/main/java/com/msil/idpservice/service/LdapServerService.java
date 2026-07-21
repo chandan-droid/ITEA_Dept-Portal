@@ -75,15 +75,31 @@ public class LdapServerService {
 
     public void reset() throws Exception {
         directoryServer.clear();
-        try (InputStream inputStream = ldifResource.getInputStream();
-             LDIFReader reader = new LDIFReader(inputStream)) {
-            while (true) {
-                Entry entry = reader.readEntry();
-                if (entry == null) {
-                    break;
-                }
-                directoryServer.add(entry);
+        InputStream inputStream = null;
+        try {
+            if (ldifResource != null && ldifResource.exists()) {
+                inputStream = ldifResource.getInputStream();
             }
+        } catch (Exception e) {
+            System.err.println("Could not load configured LDIF resource, falling back to classpath:setup.ldif - " + e.getMessage());
+        }
+
+        if (inputStream == null) {
+            inputStream = getClass().getResourceAsStream("/setup.ldif");
+        }
+
+        if (inputStream != null) {
+            try (LDIFReader reader = new LDIFReader(inputStream)) {
+                while (true) {
+                    Entry entry = reader.readEntry();
+                    if (entry == null) {
+                        break;
+                    }
+                    directoryServer.add(entry);
+                }
+            }
+        } else {
+            System.err.println("Warning: No LDIF file found for initial LDAP seeding.");
         }
     }
 

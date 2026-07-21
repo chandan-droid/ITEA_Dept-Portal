@@ -5,7 +5,7 @@ mockidp:
   ldap:
     base-dn: "${MOCKIDP_LDAP_BASE_DN:dc=msil,dc=co,dc=in}"
     listener-port: ${MOCKIDP_LDAP_PORT:8389}
-    ldif: "${MOCKIDP_LDAP_LDIF:file:setup.ldif.example}"
+    ldif: "${MOCKIDP_LDAP_LDIF:classpath:setup.ldif}"
     manager-dn: "${MOCKIDP_LDAP_MANAGER_DN:cn=Directory Manager}"
     manager-password: "${MOCKIDP_LDAP_MANAGER_PASSWORD:password}"
   rate-limit:
